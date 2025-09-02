@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AWS Profile Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Current Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user-circle"></i> Current Profile
+                </h5>
+            </div>
+            <div class="card-body">
+                <h4 class="text-primary">{{ current_profile }}</h4>
+                <p class="text-muted mb-0">Currently active AWS profile</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-globe"></i> Current Environment
+                </h5>
+            </div>
+            <div class="card-body">
+                <h4 class="text-success">{{ current_env.environment }}</h4>
+                <p class="text-muted mb-0">{{ current_env.description }}</p>
+                <small class="text-muted">
+                    <i class="fas fa-map-marker-alt"></i> {{ current_env.region }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Base Credentials Path Configuration -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cog"></i> Base Credentials Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="baseCredentialsPath" class="form-label">Base Credentials File Path</label>
+                            <input type="text" class="form-control" id="baseCredentialsPath" 
+                                   value="{{ base_credentials_path }}" placeholder="Enter path to base credentials file">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary w-100" onclick="updateBaseCredentialsPath()">
+                                <i class="fas fa-save"></i> Update Path
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt"></i> Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-primary w-100" onclick="syncCredentials()">
+                            <i class="fas fa-sync-alt"></i>
+                            <span class="btn-text">Sync Credentials</span>
+                            <span class="loading spinner-border spinner-border-sm" role="status"></span>
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-warning w-100" onclick="forceRefresh()">
+                            <i class="fas fa-refresh"></i>
+                            <span class="btn-text">Force Refresh</span>
+                            <span class="loading spinner-border spinner-border-sm" role="status"></span>
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-info w-100" onclick="cleanConfig()">
+                            <i class="fas fa-broom"></i>
+                            <span class="btn-text">Clean Config</span>
+                            <span class="loading spinner-border spinner-border-sm" role="status"></span>
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-danger w-100" onclick="forceCleanReset()">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span class="btn-text">Force Reset</span>
+                            <span class="loading spinner-border spinner-border-sm" role="status"></span>
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-success w-100" onclick="downloadCredentials()">
+                            <i class="fas fa-download"></i>
+                            <span class="btn-text">Download Credentials</span>
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-secondary w-100" onclick="location.reload()">
+                            <i class="fas fa-sync"></i>
+                            <span class="btn-text">Refresh Page</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Credentials Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-key"></i> Credentials Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-file-alt me-2"></i>
+                            <span>Base File:</span>
+                            <span class="badge bg-{{ 'success' if credentials_status.base_file_exists else 'danger' }} ms-2">
+                                {{ 'Exists' if credentials_status.base_file_exists else 'Missing' }}
+                            </span>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-user me-2"></i>
+                            <span>Default Profile:</span>
+                            <span class="badge bg-{{ 'success' if credentials_status.default_profile_valid else 'danger' }} ms-2">
+                                {{ 'Valid' if credentials_status.default_profile_valid else 'Invalid' }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-crown me-2"></i>
+                            <span>infrrd-master:</span>
+                            <span class="badge bg-{{ 'success' if credentials_status.infrrd_master_valid else 'danger' }} ms-2">
+                                {{ 'Valid' if credentials_status.infrrd_master_valid else 'Invalid' }}
+                            </span>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            <span>Sync Status:</span>
+                            <span class="badge bg-{{ 'success' if credentials_status.in_sync else 'warning' }} ms-2">
+                                {{ 'In Sync' if credentials_status.in_sync else 'Out of Sync' }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted">
+                            <small>
+                                <strong>Base Key:</strong> {{ credentials_status.base_access_key }}<br>
+                                <strong>Default Key:</strong> {{ credentials_status.default_access_key }}<br>
+                                <strong>infrrd Key:</strong> {{ credentials_status.infrrd_access_key }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Available Environments -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-globe"></i> Available Environments
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for env_name, env_config in environments.items() %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card environment-card {{ 'current-env' if current_env.environment == env_name.upper() else '' }}">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    {% if current_env.environment == env_name.upper() %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    {% else %}
+                                        <i class="fas fa-circle text-muted"></i>
+                                    {% endif %}
+                                    {{ env_name.upper() }}
+                                </h6>
+                                <p class="card-text text-muted small">{{ env_config.description }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="fas fa-map-marker-alt"></i> {{ env_config.region }}
+                                    </small>
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="switchEnvironment('{{ env_name }}')"
+                                            {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
+                                        {% if current_env.environment == env_name.upper() %}
+                                            Active
+                                        {% else %}
+                                            Switch
+                                        {% endif %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateBaseCredentialsPath() {
+    const newPath = document.getElementById('baseCredentialsPath').value;
+    if (!newPath) {
+        showAlert('Please enter a valid path', 'danger');
+        return;
+    }
+    
+    apiCall('/api/update_base_credentials_path', {base_credentials_path: newPath}, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        }
+    );
+}
+
+function downloadCredentials() {
+    window.open('/api/download_credentials', '_blank');
+}
+
+function syncCredentials() {
+    const btn = event.target.closest('button');
+    showLoading(btn);
+    
+    apiCall('/api/sync_credentials', {}, 
+        function(result) {
+            hideLoading(btn);
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            hideLoading(btn);
+        }
+    );
+}
+
+function forceRefresh() {
+    const btn = event.target.closest('button');
+    showLoading(btn);
+    
+    apiCall('/api/force_refresh', {}, 
+        function(result) {
+            hideLoading(btn);
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            hideLoading(btn);
+        }
+    );
+}
+
+function cleanConfig() {
+    const btn = event.target.closest('button');
+    showLoading(btn);
+    
+    apiCall('/api/clean_config', {}, 
+        function(result) {
+            hideLoading(btn);
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            hideLoading(btn);
+        }
+    );
+}
+
+function forceCleanReset() {
+    if (!confirm('This will force clean and reset the configuration. Are you sure?')) {
+        return;
+    }
+    
+    const btn = event.target.closest('button');
+    showLoading(btn);
+    
+    apiCall('/api/force_clean_reset', {}, 
+        function(result) {
+            hideLoading(btn);
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            hideLoading(btn);
+        }
+    );
+}
+
+function switchEnvironment(envName) {
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = 'Switching...';
+    btn.disabled = true;
+    
+    apiCall('/api/switch_environment', {env_name: envName}, 
+        function(result) {
+            btn.textContent = 'Active';
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    );
+}
+</script>
+{% endblock %}

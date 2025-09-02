@@ -1,0 +1,45 @@
+{
+  "base_credentials_path": "/home/krishnavatar/Downloads/credentials",
+  "environments": {
+    "dev": {
+      "region": "us-west-2",
+      "role_arn": "arn:aws:iam::465825429380:role/AWS-SSO-Dev-Engineer",
+      "description": "Development Environment"
+    },
+    "stage": {
+      "region": "us-west-2", 
+      "role_arn": "arn:aws:iam::517080596001:role/AWS-SSO-Dev-Engineer",
+      "description": "Staging Environment"
+    },
+    "swbcuat": {
+      "region": "us-east-1",
+      "role_arn": "arn:aws:iam::381492214186:role/AWS-SSO-Dev-Engineer", 
+      "description": "SWBC UAT Environment"
+    },
+    "swbcprod": {
+      "region": "us-east-1",
+      "role_arn": "arn:aws:iam::379233983907:role/AWS-SSO-Dev-Engineer",
+      "description": "SWBC Production Environment"
+    },
+    "snprod": {
+      "region": "us-west-2",
+      "role_arn": "arn:aws:iam::448930163422:role/AWS-SSO-Dev-Engineer",
+      "description": "SN Production Environment"
+    },
+    "eu-prod": {
+      "region": "eu-west-1",
+      "role_arn": "arn:aws:iam::832828561738:role/AWS-SSO-Dev-Engineer",
+      "description": "EU Production Environment"
+    }
+  },
+  "credentials_profiles": {
+    "default": {
+      "type": "credentials",
+      "description": "Default AWS profile"
+    },
+    "infrrd-master": {
+      "type": "credentials", 
+      "description": "Master credentials profile for role assumption"
+    }
+  }
+}

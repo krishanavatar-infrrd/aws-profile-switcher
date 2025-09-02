@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}Profiles - AWS Profile Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-users"></i> AWS Profiles
+        </h1>
+    </div>
+</div>
+
+<!-- Add New Profile -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-plus"></i> Add New Profile
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs" id="profileTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="credentials-tab" data-bs-toggle="tab" data-bs-target="#credentials" type="button" role="tab">
+                            <i class="fas fa-key"></i> Credentials Profile
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="role-tab" data-bs-toggle="tab" data-bs-target="#role" type="button" role="tab">
+                            <i class="fas fa-user-tag"></i> Role Profile
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="config-tab" data-bs-toggle="tab" data-bs-target="#config" type="button" role="tab">
+                            <i class="fas fa-cog"></i> Config Profile
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content mt-3" id="profileTabContent">
+                    <!-- Credentials Profile Tab -->
+                    <div class="tab-pane fade show active" id="credentials" role="tabpanel">
+                        <form id="credentialsForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="profileName" class="form-label">Profile Name</label>
+                                        <input type="text" class="form-control" id="profileName" name="profile_name" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="accessKey" class="form-label">AWS Access Key ID</label>
+                                        <input type="text" class="form-control" id="accessKey" name="access_key" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="secretKey" class="form-label">AWS Secret Access Key</label>
+                                        <input type="password" class="form-control" id="secretKey" name="secret_key" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="sessionToken" class="form-label">AWS Session Token (Optional)</label>
+                                        <input type="text" class="form-control" id="sessionToken" name="session_token">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Credentials Profile
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Role Profile Tab -->
+                    <div class="tab-pane fade" id="role" role="tabpanel">
+                        <form id="roleForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="roleProfileName" class="form-label">Profile Name</label>
+                                        <input type="text" class="form-control" id="roleProfileName" name="profile_name" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="sourceProfile" class="form-label">Source Profile</label>
+                                        <select class="form-select" id="sourceProfile" name="source_profile" required>
+                                            <option value="">Select source profile...</option>
+                                            {% for profile_name, profile_info in profiles.items() %}
+                                                {% if profile_info.type == 'credentials' or profile_info.type == 'both' %}
+                                                    <option value="{{ profile_name }}">{{ profile_name }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="roleArn" class="form-label">Role ARN</label>
+                                        <input type="text" class="form-control" id="roleArn" name="role_arn" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="region" class="form-label">Region (Optional)</label>
+                                        <input type="text" class="form-control" id="region" name="region">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="duration" class="form-label">Duration (seconds)</label>
+                                        <input type="number" class="form-control" id="duration" name="duration" value="3600">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Role Profile
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Config Profile Tab -->
+                    <div class="tab-pane fade" id="config" role="tabpanel">
+                        <form id="configForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="configProfileName" class="form-label">Profile Name</label>
+                                        <input type="text" class="form-control" id="configProfileName" name="profile_name" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="configDescription" class="form-label">Description</label>
+                                        <input type="text" class="form-control" id="configDescription" name="description" placeholder="Optional description">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Add to Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Profiles -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cogs"></i> Configuration Profiles
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if credentials_profiles %}
+                    <div class="row">
+                        {% for profile_name, profile_info in credentials_profiles.items() %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-cog"></i> {{ profile_name }}
+                                    </h6>
+                                    <p class="card-text text-muted small">{{ profile_info.description }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-info">{{ profile_info.type.title() }}</span>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="removeConfigProfile('{{ profile_name }}')">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>No configuration profiles found.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Existing Profiles -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list"></i> Existing Profiles
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if profiles %}
+                    <div class="row">
+                        {% for profile_name, profile_info in profiles.items() %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="profile-item {{ profile_info.status }}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="fas fa-{{ 'key' if profile_info.type == 'credentials' else 'user-tag' if profile_info.type == 'role' else 'users' }}"></i>
+                                            {{ profile_name }}
+                                        </h6>
+                                        <p class="text-muted small mb-1">
+                                            Type: {{ profile_info.type.title() }}
+                                        </p>
+                                        <p class="text-muted small mb-1">
+                                            Status: 
+                                            <span class="badge bg-{{ 'success' if profile_info.status == 'valid' else 'danger' if profile_info.status == 'invalid' else 'primary' if profile_info.status == 'role' else 'info' }}">
+                                                {{ profile_info.status.title() }}
+                                            </span>
+                                        </p>
+                                        {% if profile_info.access_key != 'N/A' %}
+                                        <p class="text-muted small mb-0">
+                                            Access Key: {{ profile_info.access_key }}
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="btn-group-vertical">
+                                        {% if profile_info.type == 'credentials' or profile_info.type == 'both' %}
+                                        <button class="btn btn-sm btn-outline-primary btn-action" 
+                                                onclick="switchProfile('{{ profile_name }}')">
+                                            <i class="fas fa-exchange-alt"></i> Switch
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-outline-danger btn-action" 
+                                                onclick="removeProfile('{{ profile_name }}', '{{ profile_info.type }}')">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>No profiles found. Create your first profile above.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('credentialsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    apiCall('/api/update_credentials', data, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        }
+    );
+});
+
+document.getElementById('roleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    apiCall('/api/create_role_profile', data, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        }
+    );
+});
+
+document.getElementById('configForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    apiCall('/api/add_credential_profile', data, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        }
+    );
+});
+
+function switchProfile(profileName) {
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
+    btn.disabled = true;
+    
+    apiCall('/api/switch_profile', {profile_name: profileName}, 
+        function(result) {
+            btn.innerHTML = '<i class="fas fa-check"></i> Active';
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    );
+}
+
+function removeProfile(profileName, profileType) {
+    if (!confirm(`Are you sure you want to remove the profile "${profileName}"?`)) {
+        return;
+    }
+    
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Removing...';
+    btn.disabled = true;
+    
+    apiCall('/api/remove_profile', {
+        profile_name: profileName,
+        profile_type: profileType
+    }, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    );
+}
+
+function removeConfigProfile(profileName) {
+    if (!confirm(`Are you sure you want to remove the configuration profile "${profileName}"?`)) {
+        return;
+    }
+    
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Removing...';
+    btn.disabled = true;
+    
+    apiCall('/api/remove_credential_profile', {
+        profile_name: profileName
+    }, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    );
+}
+</script>
+{% endblock %}

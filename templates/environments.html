@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Environments - AWS Profile Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-globe"></i> AWS Environments
+        </h1>
+    </div>
+</div>
+
+<!-- Add New Environment -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-plus"></i> Add New Environment
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="environmentForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="envName" class="form-label">Environment Name</label>
+                                <input type="text" class="form-control" id="envName" name="env_name" required placeholder="e.g., prod, test, uat">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="envRegion" class="form-label">Region</label>
+                                <select class="form-select" id="envRegion" name="region" required>
+                                    <option value="">Select region...</option>
+                                    <option value="us-east-1">US East 1 (N. Virginia)</option>
+                                    <option value="us-east-2">US East 2 (Ohio)</option>
+                                    <option value="us-west-1">US West 1 (N. California)</option>
+                                    <option value="us-west-2">US West 2 (Oregon)</option>
+                                    <option value="eu-west-1">Europe West 1 (Ireland)</option>
+                                    <option value="eu-west-2">Europe West 2 (London)</option>
+                                    <option value="eu-central-1">Europe Central 1 (Frankfurt)</option>
+                                    <option value="ap-southeast-1">Asia Pacific Southeast 1 (Singapore)</option>
+                                    <option value="ap-southeast-2">Asia Pacific Southeast 2 (Sydney)</option>
+                                    <option value="ap-northeast-1">Asia Pacific Northeast 1 (Tokyo)</option>
+                                    <option value="ap-northeast-2">Asia Pacific Northeast 2 (Seoul)</option>
+                                    <option value="ap-south-1">Asia Pacific South 1 (Mumbai)</option>
+                                    <option value="ca-central-1">Canada Central 1 (Central)</option>
+                                    <option value="sa-east-1">South America East 1 (São Paulo)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="envRoleArn" class="form-label">Role ARN</label>
+                                <input type="text" class="form-control" id="envRoleArn" name="role_arn" required 
+                                       placeholder="arn:aws:iam::123456789012:role/YourRole">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="envDescription" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="envDescription" name="description" 
+                                       placeholder="Optional description">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Add Environment
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Environment -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle"></i> Current Environment
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Environment:</strong><br>
+                        <span class="text-primary fs-5">{{ current_env.environment }}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Region:</strong><br>
+                        <span class="text-muted">{{ current_env.region }}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Profile:</strong><br>
+                        <span class="text-muted">{{ current_env.profile }}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Description:</strong><br>
+                        <span class="text-muted">{{ current_env.description }}</span>
+                    </div>
+                </div>
+                {% if current_env.role_arn != 'N/A' %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <strong>Role ARN:</strong><br>
+                        <code class="text-muted">{{ current_env.role_arn }}</code>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Available Environments -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list"></i> Available Environments
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for env_name, env_config in environments.items() %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card environment-card {{ 'current-env' if current_env.environment == env_name.upper() else '' }}">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    {% if current_env.environment == env_name.upper() %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    {% else %}
+                                        <i class="fas fa-circle text-muted"></i>
+                                    {% endif %}
+                                    {{ env_name.upper() }}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">{{ env_config.description }}</p>
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-map-marker-alt"></i> <strong>Region:</strong> {{ env_config.region }}
+                                    </small>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-user-tag"></i> <strong>Role:</strong><br>
+                                        <code class="small">{{ env_config.role_arn }}</code>
+                                    </small>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-{{ 'success' if current_env.environment == env_name.upper() else 'outline-primary' }}" 
+                                            onclick="switchEnvironment('{{ env_name }}')"
+                                            {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
+                                        {% if current_env.environment == env_name.upper() %}
+                                            <i class="fas fa-check"></i> Currently Active
+                                        {% else %}
+                                            <i class="fas fa-exchange-alt"></i> Switch to {{ env_name.upper() }}
+                                        {% endif %}
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="removeEnvironment('{{ env_name }}')"
+                                            {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Environment Details -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cogs"></i> Environment Configuration Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Environment</th>
+                                <th>Region</th>
+                                <th>Role ARN</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for env_name, env_config in environments.items() %}
+                            <tr class="{{ 'table-success' if current_env.environment == env_name.upper() else '' }}">
+                                <td>
+                                    <strong>{{ env_name.upper() }}</strong>
+                                    {% if current_env.environment == env_name.upper() %}
+                                        <span class="badge bg-success ms-2">Active</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ env_config.region }}</td>
+                                <td>
+                                    <code class="small">{{ env_config.role_arn }}</code>
+                                </td>
+                                <td>{{ env_config.description }}</td>
+                                <td>
+                                    {% if current_env.environment == env_name.upper() %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" 
+                                                onclick="switchEnvironment('{{ env_name }}')"
+                                                {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
+                                            <i class="fas fa-exchange-alt"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" 
+                                                onclick="removeEnvironment('{{ env_name }}')"
+                                                {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('environmentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    apiCall('/api/add_environment', data, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        }
+    );
+});
+
+function switchEnvironment(envName) {
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
+    btn.disabled = true;
+    
+    apiCall('/api/switch_environment', {env_name: envName}, 
+        function(result) {
+            btn.innerHTML = '<i class="fas fa-check"></i> Currently Active';
+            btn.className = 'btn btn-success';
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    );
+}
+
+function removeEnvironment(envName) {
+    if (!confirm(`Are you sure you want to remove the environment "${envName}"?`)) {
+        return;
+    }
+    
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Removing...';
+    btn.disabled = true;
+    
+    apiCall('/api/remove_environment', {env_name: envName}, 
+        function(result) {
+            setTimeout(() => location.reload(), 1000);
+        },
+        function(error) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    );
+}
+</script>
+{% endblock %}
