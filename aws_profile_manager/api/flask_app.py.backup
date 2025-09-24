@@ -1,0 +1,274 @@
+"""
+Flask Web Application for AWS Profile Manager
+"""
+
+import os
+import secrets
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from pathlib import Path
+
+from aws_profile_manager.core.manager import AWSProfileManager
+from aws_profile_manager.utils.logging import setup_logging, get_logger
+
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
+
+
+def create_app(config_file: str = 'config.json') -> Flask:
+    """Create and configure Flask application"""
+    app = Flask(__name__, 
+                template_folder=str(Path(__file__).parent.parent.parent / 'templates'),
+                static_folder=str(Path(__file__).parent.parent.parent / 'static'))
+    
+    # Generate secret key
+    app.secret_key = secrets.token_hex(16)
+    
+    # Initialize AWS Profile Manager
+    aws_manager = AWSProfileManager(config_file)
+    
+    @app.route('/')
+    def index():
+        """Dashboard page"""
+        try:
+            status = aws_manager.get_status()
+            credentials_status = aws_manager.get_credentials_status()
+            
+            # Format data for templates
+            current_profile = status.get('current_profile', 'default')
+            current_env_name = status.get('current_environment')
+            
+            # Get current environment details
+            current_env = None
+            if current_env_name:
+                environments = status.get('environments', {})
+                if current_env_name in environments:
+                    env_config = environments[current_env_name]
+                    current_env = {
+                        'environment': current_env_name.upper(),
+                        'description': env_config.get('description', ''),
+                        'region': env_config.get('region', '')
+                    }
+            
+            # Get credentials status
+            credentials_status = aws_manager.get_credentials_status()
+            
+            return render_template('index.html', 
+                                 current_profile=current_profile,
+                                 current_env=current_env,
+                                 environments=status.get('environments', {}),
+                                 base_credentials_path=status.get('base_credentials_path', ''),
+                                 credentials_status=credentials_status)
+        except Exception as e:
+            logger.error(f"Error in index: {e}")
+            flash(f"Error loading dashboard: {e}", 'error')
+            return render_template('index.html', 
+                                 current_profile='default',
+                                 current_env=None,
+                                 environments={},
+                                 base_credentials_path='',
+                                 credentials_status={
+                                     'base_file_exists': False,
+                                     'default_profile_valid': False,
+                                     'infrrd_master_valid': False,
+                                     'in_sync': False,
+                                     'base_access_key': 'N/A',
+                                     'default_access_key': 'N/A',
+                                     'infrrd_access_key': 'N/A'
+                                 })
+    
+    @app.route('/profiles')
+    def profiles():
+        """Profiles management page"""
+        try:
+            profiles = aws_manager.list_profiles()
+            status = aws_manager.get_status()
+            credentials_status = aws_manager.get_credentials_status()
+            return render_template('profiles.html', profiles=profiles, current_profile=status['current_profile'])
+        except Exception as e:
+            logger.error(f"Error in profiles: {e}")
+            flash(f"Error loading profiles: {e}", 'error')
+            return render_template('profiles.html', profiles={}, current_profile=None)
+    
+    @app.route('/environments')
+    def environments():
+        """Environments management page"""
+        try:
+            environments = aws_manager.list_environments()
+            status = aws_manager.get_status()
+            credentials_status = aws_manager.get_credentials_status()
+            current_env_name = status.get('current_environment')
+            return render_template('environments.html', 
+                                 environments=environments, 
+                                 current_env=current_env_name)
+        except Exception as e:
+            logger.error(f"Error in environments: {e}")
+            flash(f"Error loading environments: {e}", 'error')
+            return render_template('environments.html', environments={}, current_env=None)
+    
+    @app.route('/credentials')
+    def credentials():
+        """Credentials management page"""
+        try:
+            status = aws_manager.get_status()
+            credentials_status = aws_manager.get_credentials_status()
+            return render_template("credentials.html", status=status, credentials_status=credentials_status)
+        except Exception as e:
+            logger.error(f"Error in credentials: {e}")
+            flash(f"Error loading credentials: {e}", 'error')
+            return render_template("credentials.html", status={}, credentials_status={
+                                     "base_file_exists": False,
+                                     "default_profile_valid": False,
+                                     "infrrd_master_valid": False,
+                                     "in_sync": False,
+                                     "base_access_key": "N/A",
+                                     "default_access_key": "N/A",
+                                     "infrrd_access_key": "N/A"
+                                 })
+    
+    @app.route('/s3')
+    def s3():
+        """S3 management page"""
+        try:
+            buckets_result = aws_manager.list_s3_buckets()
+            buckets = buckets_result.get('buckets', []) if buckets_result['success'] else []
+            return render_template('s3.html', buckets=buckets)
+        except Exception as e:
+            logger.error(f"Error in s3: {e}")
+            flash(f"Error loading S3: {e}", 'error')
+            return render_template('s3.html', buckets=[])
+    @app.route("/assume-role-page")
+    def assume_role_page():
+        """Assume role page"""
+        try:
+            assume_role_configs = aws_manager.config_manager.get_assume_role_configs()
+            return render_template('assume_role.html', assume_role_configs=assume_role_configs)
+        except Exception as e:
+            logger.error(f"Error in assume role page: {e}")
+            return render_template('assume_role.html', assume_role_configs={})
+def run_app(host='0.0.0.0', port=5000, debug=False):
+    """Run the Flask application"""
+    app = create_app()
+    app.run(host=host, port=port, debug=debug)
+
+
+    """Run the Flask application"""
+    app = create_app()
+    app.run(host=host, port=port, debug=debug)
+
+        """Assume role page"""
+        try:
+            assume_role_configs = aws_manager.config_manager.get_assume_role_configs()
+            return render_template('assume_role.html', assume_role_configs=assume_role_configs)
+        except Exception as e:
+            logger.error(f"Error in assume role page: {e}")
+            return render_template('assume_role.html', assume_role_configs={})
+def run_app(host='0.0.0.0', port=5000, debug=False):
+    """Run the Flask application"""
+    app = create_app()
+    app.run(host=host, port=port, debug=debug)
+
+
+    
+    # API Endpoints
+    @app.route('/api/switch_profile', methods=['POST'])
+    def api_switch_profile():
+        """API endpoint to switch profile"""
+        try:
+            data = request.get_json()
+            profile_name = data.get('profile_name')
+            
+            if not profile_name:
+                return jsonify({'success': False, 'message': 'Profile name is required'})
+            
+            success = aws_manager.switch_profile(profile_name)
+            if success:
+                return jsonify({'success': True, 'message': f'Switched to profile: {profile_name}'})
+            else:
+                return jsonify({'success': False, 'message': f'Failed to switch to profile: {profile_name}'})
+        
+        except Exception as e:
+            logger.error(f"Error switching profile: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+    
+    @app.route('/api/switch_environment', methods=['POST'])
+    def api_switch_environment():
+        """API endpoint to switch environment"""
+        try:
+            data = request.get_json()
+            env_name = data.get('env_name')
+            
+            if not env_name:
+                return jsonify({'success': False, 'message': 'Environment name is required'})
+            
+            success = aws_manager.switch_environment(env_name)
+            if success:
+                return jsonify({'success': True, 'message': f'Switched to environment: {env_name}'})
+            else:
+                return jsonify({'success': False, 'message': f'Failed to switch to environment: {env_name}'})
+        
+        except Exception as e:
+            logger.error(f"Error switching environment: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+    
+    @app.route('/api/sync_credentials', methods=['POST'])
+    def api_sync_credentials():
+        """API endpoint to sync credentials"""
+        try:
+            success = aws_manager.sync_credentials()
+            if success:
+                return jsonify({'success': True, 'message': 'Credentials synced successfully'})
+            else:
+                return jsonify({'success': False, 'message': 'Failed to sync credentials'})
+        
+        except Exception as e:
+            logger.error(f"Error syncing credentials: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+    
+    @app.route('/api/save_credentials', methods=['POST'])
+    def api_save_credentials():
+        """API endpoint to save credentials"""
+        try:
+            data = request.get_json()
+            profile_name = data.get('profile_name')
+            access_key = data.get('access_key')
+            secret_key = data.get('secret_key')
+            session_token = data.get('session_token')
+            
+            if not all([profile_name, access_key, secret_key]):
+                return jsonify({'success': False, 'message': 'Profile name, access key, and secret key are required'})
+            
+            success = aws_manager.save_credentials(profile_name, access_key, secret_key, session_token)
+            if success:
+                return jsonify({'success': True, 'message': f'Credentials saved for profile: {profile_name}'})
+            else:
+                return jsonify({'success': False, 'message': f'Failed to save credentials for profile: {profile_name}'})
+        
+        except Exception as e:
+            logger.error(f"Error saving credentials: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+    
+    @app.route('/api/save_role_profile', methods=['POST'])
+    def api_save_role_profile():
+        """API endpoint to save role profile"""
+        try:
+            data = request.get_json()
+            profile_name = data.get('profile_name')
+            role_arn = data.get('role_arn')
+            source_profile = data.get('source_profile', 'default')
+            region = data.get('region', 'us-east-1')
+            external_id = data.get('external_id')
+            
+            if not all([profile_name, role_arn]):
+                return jsonify({'success': False, 'message': 'Profile name and role ARN are required'})
+            
+            success = aws_manager.save_role_profile(profile_name, role_arn, source_profile, region, external_id)
+            if success:
+                return jsonify({'success': True, 'message': f'Role profile saved: {profile_name}'})
+            else:
+                return jsonify({'success': False, 'message': f'Failed to save role profile: {profile_name}'})
+        
+        except Exception as e:
+            logger.error(f"Error saving role profile: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+    

@@ -7,13 +7,13 @@
       "description": "Development Environment"
     },
     "stage": {
-      "region": "us-west-2", 
+      "region": "us-west-2",
       "role_arn": "arn:aws:iam::517080596001:role/AWS-SSO-Dev-Engineer",
       "description": "Staging Environment"
     },
     "swbcuat": {
       "region": "us-east-1",
-      "role_arn": "arn:aws:iam::381492214186:role/AWS-SSO-Dev-Engineer", 
+      "role_arn": "arn:aws:iam::381492214186:role/AWS-SSO-Dev-Engineer",
       "description": "SWBC UAT Environment"
     },
     "swbcprod": {
@@ -38,8 +38,38 @@
       "description": "Default AWS profile"
     },
     "infrrd-master": {
-      "type": "credentials", 
+      "type": "credentials",
       "description": "Master credentials profile for role assumption"
+    }
+  },
+  "assume_role_configs": {
+    "swbc-ingress-beta": {
+      "role_arn": "arn:aws:iam::922020051898:role/infrrd-uat-integration-beta-ingress-iam-role",
+      "external_id": "8bc27afc-2c2a-422a-93cc-590c6e31cd61",
+      "session_name": "swbc-ingress-beta-session",
+      "duration": 3600,
+      "description": "SWBC Ingress Beta Role"
+    },
+     "swbc-egress-beta": {
+      "role_arn": "arn:aws:iam::922020051898:role/swbc-idp-beta-infrrd-integration-egress-iam-role",
+      "session_name": "infrrd-download-session",
+      "external_id": "8bc27afc-2c2a-422a-93cc-590c6e31cd61",
+      "duration": 3600,
+      "description": "Egress Assume Role for Swbc Uat"
+    },
+    "swbc-ingress-prod": {
+      "role_arn": "arn:aws:iam::853954578921:role/swbc-idp-prod-infrrd-integration-ingress-iam-role",
+      "external_id": "dhl7DX2AnznQQxvwW_QD3yvhZDN8OxBnXJjCfQn2CPA-HZfhy.x_j60K-hDRbV6h8+DZML/ms,pZsb.=@aU/VAvN=daYu.b0Fgt3g,ES4CFSz97jIExem-5uDiuaew/z.unMA4-QZQ-oxrnv2Df+tFomKw94m4E/bL6wTDxy-,aJYlE.LZVLLPC9bbP7X97LASM25ZknKf3vxQTBUiOnDXYSQxc8uNCJMY2Q,=acyFV5ey7liLEz.+lBf,LN+K-,C_qETL0EVWja0Mal_KU3+iJgT=531thyT7c55L28+WQXXhsAf1s00GQJjkhUJrbx19dOHVmL/w+q8mrTC2wntu9XO3IdYSy1lkO555sCP2OcSpG,S,y5RFhwi-gZVFL@EG,3C_M=sgDVPEFmjVpf-n9-m,6T9LCW53luauyMgw1LX9wQFlzzL@sr1s9L8T+KfhJ+,zVvM50VmvXy0+A5-RJ_J0_F7LVN5w5HQeFS+Sbqsdwhn=,=,9FmaRx5upuCdT70aNKFWmd3-UEoRdtrMJLP5m=eF672rF3MD-+q@U/Z+_.LbSHFF@l+MjwY=ZBj4frKJi,kSIcHIkH9Hw=.7Mz9yvc=5ICfrn3fClN@OydMXym0gS1xX=UBNAGrWmdn572pkaQ=T9AmT3+XH_8mAu_un4BhZiXNTB.gp9Ah-M648oA9eLWO8ms911qrbXL-d4bAB77D7JKnzl6tu0TWPWNj@aki/2nI6kCxF7yp2bRYcxK7ifUECmFTcJpMDtGewSgH2/VZXZP2Y1V=/3SvGndQ2yupQK_6ezE_GBAM7TurCa2FHmsLZy,7l7j6OsBTNwevU6@+2_E87ni,6oFcCS@RxSYS1,HTNU8NiKROqnJ@ga@mpliddNPW=GN,6uR,R+Mm-olp@KedDHqu942+6F_DmVMx+p=xwVsyjzzTgH6q=Zveztz@tn+qoX9BTVQ/.qeTSP849=1GsIFqIH4X-q.mZCbT4wWqJoGD70Ysq3eC3YmhQBgetXH0ox93Jv8nXpc4GDSSEB4_w3Ab60jkQvdH86MhP6.n.2kI7Z.7@Et.vt3nZjT8Ec-2UeawkK_B6Y0,TwYtkK,fBTxE=K6u9ZSSn-T9r0d_qUFxQbQ,KZrk,q96gsbu.3hBD=CDvd93,VZ677rbDz.t9TZ3n7.RAllu34WO5UC6D/hyCApeFhh7ItN@SBYRz7w4lTNpoQ__lGxUgvD7",
+      "session_name": "swbc-ingress-prod-session",
+      "duration": 3600,
+      "description": "SWBC Ingress Production Role"
+    },
+    "swbc-egress-prod": {
+      "role_arn": "arn:aws:iam::853954578921:role/swbc-idp-prod-infrrd-integration-egress-iam-role",
+      "external_id": "dhl7DX2AnznQQxvwW_QD3yvhZDN8OxBnXJjCfQn2CPA-HZfhy.x_j60K-hDRbV6h8+DZML/ms,pZsb.=@aU/VAvN=daYu.b0Fgt3g,ES4CFSz97jIExem-5uDiuaew/z.unMA4-QZQ-oxrnv2Df+tFomKw94m4E/bL6wTDxy-,aJYlE.LZVLLPC9bbP7X97LASM25ZknKf3vxQTBUiOnDXYSQxc8uNCJMY2Q,=acyFV5ey7liLEz.+lBf,LN+K-,C_qETL0EVWja0Mal_KU3+iJgT=531thyT7c55L28+WQXXhsAf1s00GQJjkhUJrbx19dOHVmL/w+q8mrTC2wntu9XO3IdYSy1lkO555sCP2OcSpG,S,y5RFhwi-gZVFL@EG,3C_M=sgDVPEFmjVpf-n9-m,6T9LCW53luauyMgw1LX9wQFlzzL@sr1s9L8T+KfhJ+,zVvM50VmvXy0+A5-RJ_J0_F7LVN5w5HQeFS+Sbqsdwhn=,=,9FmaRx5upuCdT70aNKFWmd3-UEoRdtrMJLP5m=eF672rF3MD-+q@U/Z+_.LbSHFF@l+MjwY=ZBj4frKJi,kSIcHIkH9Hw=.7Mz9yvc=5ICfrn3fClN@OydMXym0gS1xX=UBNAGrWmdn572pkaQ=T9AmT3+XH_8mAu_un4BhZiXNTB.gp9Ah-M648oA9eLWO8ms911qrbXL-d4bAB77D7JKnzl6tu0TWPWNj@aki/2nI6kCxF7yp2bRYcxK7ifUECmFTcJpMDtGewSgH2/VZXZP2Y1V=/3SvGndQ2yupQK_6ezE_GBAM7TurCa2FHmsLZy,7l7j6OsBTNwevU6@+2_E87ni,6oFcCS@RxSYS1,HTNU8NiKROqnJ@ga@mpliddNPW=GN,6uR,R+Mm-olp@KedDHqu942+6F_DmVMx+p=xwVsyjzzTgH6q=Zveztz@tn+qoX9BTVQ/.qeTSP849=1GsIFqIH4X-q.mZCbT4wWqJoGD70Ysq3eC3YmhQBgetXH0ox93Jv8nXpc4GDSSEB4_w3Ab60jkQvdH86MhP6.n.2kI7Z.7@Et.vt3nZjT8Ec-2UeawkK_B6Y0,TwYtkK,fBTxE=K6u9ZSSn-T9r0d_qUFxQbQ,KZrk,q96gsbu.3hBD=CDvd93,VZ677rbDz.t9TZ3n7.RAllu34WO5UC6D/hyCApeFhh7ItN@SBYRz7w4lTNpoQ__lGxUgvD7",
+      "session_name": "swbc-egress-prod-session",
+      "duration": 3600,
+      "description": "SWBC egress Production Role"
     }
   }
 }

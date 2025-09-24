@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}S3 Management - AWS Profile Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-cloud"></i> S3 Management
+        </h1>
+    </div>
+</div>
+
+<!-- Assume Role Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user-tag"></i> Assume Role
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="assumeRoleForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="roleArn" class="form-label">Role ARN</label>
+                                <input type="text" class="form-control" id="roleArn" name="role_arn" required 
+                                       placeholder="arn:aws:iam::123456789012:role/YourRole">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="sessionName" class="form-label">Session Name</label>
+                                <input type="text" class="form-control" id="sessionName" name="session_name" 
+                                       value="temp-session" placeholder="temp-session">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="externalId" class="form-label">External ID (Optional)</label>
+                                <input type="text" class="form-control" id="externalId" name="external_id" 
+                                       placeholder="External ID">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-user-tag"></i> Assume Role
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- S3 Buckets -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bucket"></i> S3 Buckets
+                </h5>
+                <button class="btn btn-outline-primary btn-sm" onclick="refreshBuckets()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="bucketsList">
+                    {% if buckets %}
+                        <div class="row">
+                            {% for bucket in buckets %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card bucket-card" onclick="selectBucket('{{ bucket.name }}')">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-bucket"></i> {{ bucket.name }}
+                                        </h6>
+                                        <small class="text-muted">
+                                            Created: {{ bucket.creation_date[:10] }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted">
+                            <i class="fas fa-bucket fa-3x mb-3"></i>
+                            <p>No buckets found or unable to connect to S3</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- S3 Objects Browser -->
+<div class="row" id="objectsSection" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-folder"></i> <span id="currentBucketName">Bucket Contents</span>
+                </h5>
+                <div>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="goUp()" id="goUpBtn" style="display: none;">
+                        <i class="fas fa-arrow-up"></i> Up
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshObjects()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="breadcrumb" class="mb-3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item active" id="rootBreadcrumb">Root</li>
+                        </ol>
+                    </nav>
+                </div>
+                
+                <div id="objectsList">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="loadMoreSection" style="display: none;" class="text-center mt-3">
+                    <button class="btn btn-outline-primary" onclick="loadMoreObjects()">
+                        <i class="fas fa-plus"></i> Load More
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Download Modal -->
+<div class="modal fade" id="downloadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Download File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="downloadPath" class="form-label">Download Path (Optional)</label>
+                    <input type="text" class="form-control" id="downloadPath" 
+                           placeholder="Leave empty to use default filename">
+                </div>
+                <div class="alert alert-info">
+                    <strong>File:</strong> <span id="downloadFileName"></span><br>
+                    <strong>Bucket:</strong> <span id="downloadBucketName"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmDownload()">
+                    <i class="fas fa-download"></i> Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentBucket = '';
+let currentPrefix = '';
+let continuationToken = null;
+let currentObjects = [];
+
+// Assume Role Form
+document.getElementById('assumeRoleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    apiCall('/api/assume_role', data, 
+        function(result) {
+            showAlert('success', `Successfully assumed role. Profile: ${result.profile_name}`);
+            setTimeout(() => location.reload(), 1000);
+        }
+    );
+});
+
+function refreshBuckets() {
+    location.reload();
+}
+
+function selectBucket(bucketName) {
+    currentBucket = bucketName;
+    currentPrefix = '';
+    continuationToken = null;
+    
+    document.getElementById('currentBucketName').textContent = `Bucket: ${bucketName}`;
+    document.getElementById('objectsSection').style.display = 'block';
+    document.getElementById('goUpBtn').style.display = 'none';
+    
+    updateBreadcrumb();
+    loadObjects();
+}
+
+function updateBreadcrumb() {
+    const breadcrumb = document.getElementById('rootBreadcrumb');
+    if (currentPrefix === '') {
+        breadcrumb.innerHTML = 'Root';
+        breadcrumb.className = 'breadcrumb-item active';
+    } else {
+        const parts = currentPrefix.split('/').filter(p => p);
+        breadcrumb.innerHTML = '<a href="#" onclick="goToRoot()">Root</a>';
+        
+        let currentPath = '';
+        parts.forEach((part, index) => {
+            currentPath += part + '/';
+            const isLast = index === parts.length - 1;
+            const item = document.createElement('li');
+            item.className = `breadcrumb-item ${isLast ? 'active' : ''}`;
+            
+            if (isLast) {
+                item.textContent = part;
+            } else {
+                const link = document.createElement('a');
+                link.href = '#';
+                link.textContent = part;
+                link.onclick = () => goToPath(currentPath);
+                item.appendChild(link);
+            }
+            
+            breadcrumb.parentNode.appendChild(item);
+        });
+    }
+}
+
+function goToRoot() {
+    currentPrefix = '';
+    continuationToken = null;
+    updateBreadcrumb();
+    loadObjects();
+}
+
+function goToPath(path) {
+    currentPrefix = path;
+    continuationToken = null;
+    updateBreadcrumb();
+    loadObjects();
+}
+
+function goUp() {
+    if (currentPrefix === '') return;
+    
+    const parts = currentPrefix.split('/').filter(p => p);
+    if (parts.length > 0) {
+        parts.pop();
+        currentPrefix = parts.length > 0 ? parts.join('/') + '/' : '';
+    } else {
+        currentPrefix = '';
+    }
+    
+    continuationToken = null;
+    updateBreadcrumb();
+    loadObjects();
+}
+
+function loadObjects() {
+    const objectsList = document.getElementById('objectsList');
+    objectsList.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    
+    const params = new URLSearchParams({
+        bucket: currentBucket,
+        prefix: currentPrefix,
+        max_keys: 20
+    });
+    
+    if (continuationToken) {
+        params.append('continuation_token', continuationToken);
+    }
+    
+    fetch(`/api/list_s3_objects?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayObjects(data.objects);
+                continuationToken = data.next_continuation_token;
+                document.getElementById('loadMoreSection').style.display = 
+                    data.is_truncated ? 'block' : 'none';
+            } else {
+                objectsList.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+            }
+        })
+        .catch(error => {
+            objectsList.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+}
+
+function displayObjects(objects) {
+    const objectsList = document.getElementById('objectsList');
+    
+    if (objects.length === 0) {
+        objectsList.innerHTML = '<div class="text-center text-muted"><p>No objects found</p></div>';
+        return;
+    }
+    
+    let html = '<div class="table-responsive"><table class="table table-hover">';
+    html += '<thead><tr><th>Name</th><th>Size</th><th>Last Modified</th><th>Actions</th></tr></thead><tbody>';
+    
+    objects.forEach(obj => {
+        const isFolder = obj.is_folder || obj.key.endsWith('/');
+        const size = isFolder ? '-' : formatBytes(obj.size);
+        const lastModified = obj.last_modified ? new Date(obj.last_modified).toLocaleString() : '-';
+        
+        html += `<tr>`;
+        html += `<td>`;
+        if (isFolder) {
+            html += `<i class="fas fa-folder text-warning"></i> `;
+            html += `<a href="#" onclick="enterFolder('${obj.key}')">${obj.key}</a>`;
+        } else {
+            html += `<i class="fas fa-file text-primary"></i> ${obj.key}`;
+        }
+        html += `</td>`;
+        html += `<td>${size}</td>`;
+        html += `<td>${lastModified}</td>`;
+        html += `<td>`;
+        if (!isFolder) {
+            html += `<button class="btn btn-sm btn-outline-primary" onclick="downloadObject('${obj.key}')">`;
+            html += `<i class="fas fa-download"></i> Download</button>`;
+        }
+        html += `</td>`;
+        html += `</tr>`;
+    });
+    
+    html += '</tbody></table></div>';
+    objectsList.innerHTML = html;
+}
+
+function enterFolder(folderKey) {
+    currentPrefix = folderKey;
+    continuationToken = null;
+    updateBreadcrumb();
+    loadObjects();
+}
+
+function downloadObject(objectKey) {
+    document.getElementById('downloadFileName').textContent = objectKey;
+    document.getElementById('downloadBucketName').textContent = currentBucket;
+    document.getElementById('downloadPath').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('downloadModal'));
+    modal.show();
+}
+
+function confirmDownload() {
+    const objectKey = document.getElementById('downloadFileName').textContent;
+    const bucketName = document.getElementById('downloadBucketName').textContent;
+    const localPath = document.getElementById('downloadPath').value;
+    
+    const data = {
+        bucket: bucketName,
+        object_key: objectKey,
+        local_path: localPath || null
+    };
+    
+    apiCall('/api/download_s3_object', data, 
+        function(result) {
+            showAlert('success', `Downloaded to: ${result.local_path}`);
+            bootstrap.Modal.getInstance(document.getElementById('downloadModal')).hide();
+        }
+    );
+}
+
+function loadMoreObjects() {
+    loadObjects();
+}
+
+function refreshObjects() {
+    continuationToken = null;
+    loadObjects();
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Utility functions
+function apiCall(url, data, successCallback, errorCallback) {
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (successCallback) successCallback(data);
+        } else {
+            if (errorCallback) errorCallback(data);
+            else showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        if (errorCallback) errorCallback(error);
+        else showAlert('danger', 'An error occurred: ' + error.message);
+    });
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %} 

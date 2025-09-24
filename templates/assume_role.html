@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block title %}Assume Role - AWS Profile Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-user-tag"></i> Assume Role
+        </h1>
+    </div>
+</div>
+
+<!-- Predefined Role Configurations -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list"></i> Predefined Role Configurations
+                </h5>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addRoleModal">
+                    <i class="fas fa-plus"></i> Add New Role
+                </button>
+            </div>
+            <div class="card-body">
+                {% if assume_role_configs %}
+                <div class="row">
+                    {% for config_name, config in assume_role_configs.items() %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-primary">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">{{ config_name.replace('_', ' ').title() }}</h6>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary btn-sm" 
+                                                onclick="editRoleConfig('{{ config_name }}', '{{ config.role_arn }}', '{{ config.external_id or '' }}', '{{ config.session_name }}', {{ config.duration }}, '{{ config.description }}')"
+                                                title="Edit Role">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-sm" 
+                                                onclick="deleteRoleConfig('{{ config_name }}')"
+                                                title="Delete Role">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="card-text text-muted">{{ config.description }}</p>
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <strong>Session Name:</strong> {{ config.session_name }}
+                                    </small>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <strong>Duration:</strong> {{ config.duration }} seconds
+                                    </small>
+                                </div>
+                                <button class="btn btn-primary btn-sm" 
+                                        onclick="assumePredefinedRole('{{ config_name }}', '{{ config.role_arn }}', '{{ config.external_id or '' }}', '{{ config.session_name }}', {{ config.duration }})">
+                                    <i class="fas fa-play"></i> Assume Role
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No predefined role configurations found.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Role Assumption -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-plus"></i> Custom Role Assumption
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="assumeRoleForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="roleArn" class="form-label">Role ARN *</label>
+                                <input type="text" class="form-control" id="roleArn" name="role_arn" required
+                                       placeholder="arn:aws:iam::123456789012:role/MyRole">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sessionName" class="form-label">Session Name</label>
+                                <input type="text" class="form-control" id="sessionName" name="session_name" 
+                                       value="temp-session" placeholder="temp-session">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="externalId" class="form-label">External ID</label>
+                                <input type="text" class="form-control" id="externalId" name="external_id"
+                                       placeholder="Optional external ID">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="duration" class="form-label">Duration (seconds)</label>
+                                <input type="number" class="form-control" id="duration" name="duration" 
+                                       value="3600" min="900" max="43200">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-play"></i> Assume Role
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="row mt-4" id="resultsSection" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-check-circle"></i> Assumption Results
+                </h5>
+            </div>
+            <div class="card-body" id="resultsContent">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Role Modal -->
+<div class="modal fade" id="addRoleModal" tabindex="-1" aria-labelledby="addRoleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addRoleModalLabel">
+                    <i class="fas fa-plus"></i> Add New Role Configuration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="roleConfigForm">
+                    <div class="mb-3">
+                        <label for="configName" class="form-label">Configuration Name *</label>
+                        <input type="text" class="form-control" id="configName" name="config_name" required
+                               placeholder="my-role-config">
+                    </div>
+                    <div class="mb-3">
+                        <label for="configDescription" class="form-label">Description *</label>
+                        <input type="text" class="form-control" id="configDescription" name="description" required
+                               placeholder="Description of this role configuration">
+                    </div>
+                    <div class="mb-3">
+                        <label for="configRoleArn" class="form-label">Role ARN *</label>
+                        <input type="text" class="form-control" id="configRoleArn" name="role_arn" required
+                               placeholder="arn:aws:iam::123456789012:role/MyRole">
+                    </div>
+                    <div class="mb-3">
+                        <label for="configSessionName" class="form-label">Session Name *</label>
+                        <input type="text" class="form-control" id="configSessionName" name="session_name" required
+                               placeholder="my-session">
+                    </div>
+                    <div class="mb-3">
+                        <label for="configExternalId" class="form-label">External ID</label>
+                        <input type="text" class="form-control" id="configExternalId" name="external_id"
+                               placeholder="Optional external ID">
+                    </div>
+                    <div class="mb-3">
+                        <label for="configDuration" class="form-label">Duration (seconds)</label>
+                        <input type="number" class="form-control" id="configDuration" name="duration" 
+                               value="3600" min="900" max="43200">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveRoleConfig()">
+                    <i class="fas fa-save"></i> Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let editingConfigName = null;
+
+function assumePredefinedRole(configName, roleArn, externalId, sessionName, duration) {
+    const formData = {
+        role_arn: roleArn,
+        session_name: sessionName,
+        external_id: externalId || null,
+        duration: duration
+    };
+    
+    assumeRole(formData, `Predefined role: ${configName}`);
+}
+
+function editRoleConfig(configName, roleArn, externalId, sessionName, duration, description) {
+    editingConfigName = configName;
+    
+    // Update modal title
+    document.getElementById('addRoleModalLabel').innerHTML = '<i class="fas fa-edit"></i> Edit Role Configuration';
+    
+    // Populate form fields
+    document.getElementById('configName').value = configName;
+    document.getElementById('configName').readOnly = false; // Allow editing the name
+    document.getElementById('configDescription').value = description;
+    document.getElementById('configRoleArn').value = roleArn;
+    document.getElementById('configSessionName').value = sessionName;
+    document.getElementById('configExternalId').value = externalId || '';
+    document.getElementById('configDuration').value = duration;
+    
+    // Show modal
+    new bootstrap.Modal(document.getElementById('addRoleModal')).show();
+}
+
+function deleteRoleConfig(configName) {
+    if (confirm(`Are you sure you want to delete the role configuration "${configName}"?`)) {
+        fetch('/api/delete_assume_role_config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ config_name: configName })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting role configuration: ' + error.message);
+        });
+    }
+}
+
+function saveRoleConfig() {
+    const formData = {
+        config_name: document.getElementById('configName').value,
+        description: document.getElementById('configDescription').value,
+        role_arn: document.getElementById('configRoleArn').value,
+        session_name: document.getElementById('configSessionName').value,
+        external_id: document.getElementById('configExternalId').value || null,
+        duration: parseInt(document.getElementById('configDuration').value)
+    };
+    
+    const url = editingConfigName ? '/api/update_assume_role_config' : '/api/add_assume_role_config';
+    
+    // If editing and the name changed, we need to handle the rename
+    if (editingConfigName && editingConfigName !== formData.config_name) {
+        // First delete the old configuration
+        fetch('/api/delete_assume_role_config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ config_name: editingConfigName })
+        })
+        .then(response => response.json())
+        .then(deleteResult => {
+            if (deleteResult.success) {
+                // Then add the new configuration with the new name
+                return fetch('/api/add_assume_role_config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+            } else {
+                throw new Error('Failed to delete old configuration: ' + deleteResult.message);
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('addRoleModal')).hide();
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving role configuration: ' + error.message);
+        });
+    } else {
+        // Normal add or update (without name change)
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('addRoleModal')).hide();
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving role configuration: ' + error.message);
+        });
+    }
+}
+
+// Reset modal when closed
+document.getElementById('addRoleModal').addEventListener('hidden.bs.modal', function () {
+    editingConfigName = null;
+    document.getElementById('addRoleModalLabel').innerHTML = '<i class="fas fa-plus"></i> Add New Role Configuration';
+    document.getElementById('configName').readOnly = false;
+    document.getElementById('roleConfigForm').reset();
+});
+
+function assumeRole(formData, description = 'Custom role') {
+    fetch('/api/assume_role', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsContent = document.getElementById('resultsContent');
+        
+        if (data.success) {
+            resultsContent.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle"></i> Role Assumed Successfully</h6>
+                    <p><strong>Description:</strong> ${description}</p>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Access Key ID:</strong><br>
+                            <code>${data.credentials.AccessKeyId}</code>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Expires:</strong><br>
+                            <code>${new Date(data.credentials.Expiration).toLocaleString()}</code>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> How to Use These Credentials</h6>
+                        <p>You can use these temporary credentials by setting the following environment variables:</p>
+                        <pre class="mb-0">
+export AWS_ACCESS_KEY_ID=${data.credentials.AccessKeyId}
+export AWS_SECRET_ACCESS_KEY=${data.credentials.SecretAccessKey}
+export AWS_SESSION_TOKEN=${data.credentials.SessionToken}
+                        </pre>
+                    </div>
+                </div>
+            `;
+        } else {
+            resultsContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Failed to Assume Role</h6>
+                    <p><strong>Description:</strong> ${description}</p>
+                    <p><strong>Error:</strong> ${data.message}</p>
+                </div>
+            `;
+        }
+        
+        resultsSection.style.display = 'block';
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsContent = document.getElementById('resultsContent');
+        
+        resultsContent.innerHTML = `
+            <div class="alert alert-danger">
+                <h6><i class="fas fa-exclamation-triangle"></i> Error</h6>
+                <p>An error occurred while assuming the role: ${error.message}</p>
+            </div>
+        `;
+        
+        resultsSection.style.display = 'block';
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+    });
+}
+
+document.getElementById('assumeRoleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        role_arn: document.getElementById('roleArn').value,
+        session_name: document.getElementById('sessionName').value,
+        external_id: document.getElementById('externalId').value || null,
+        duration: parseInt(document.getElementById('duration').value)
+    };
+    
+    assumeRole(formData, 'Custom role assumption');
+});
+</script>
+{% endblock %}

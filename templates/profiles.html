@@ -156,6 +156,44 @@
     </div>
 </div>
 
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editProfileForm">
+                    <input type="hidden" id="editProfileName" name="profile_name">
+                    <div class="mb-3">
+                        <label for="editAccessKey" class="form-label">AWS Access Key ID</label>
+                        <input type="text" class="form-control" id="editAccessKey" name="access_key" 
+                               placeholder="Leave empty to keep current">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSecretKey" class="form-label">AWS Secret Access Key</label>
+                        <input type="password" class="form-control" id="editSecretKey" name="secret_key" 
+                               placeholder="Leave empty to keep current">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSessionToken" class="form-label">AWS Session Token (Optional)</label>
+                        <input type="text" class="form-control" id="editSessionToken" name="session_token" 
+                               placeholder="Leave empty to keep current or remove">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveProfileEdit()">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Configuration Profiles -->
 <div class="row mb-4">
     <div class="col-12">
@@ -241,6 +279,10 @@
                                                 onclick="switchProfile('{{ profile_name }}')">
                                             <i class="fas fa-exchange-alt"></i> Switch
                                         </button>
+                                        <button class="btn btn-sm btn-outline-warning btn-action" 
+                                                onclick="editProfile('{{ profile_name }}', '{{ profile_info.type }}')">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
                                         {% endif %}
                                         <button class="btn btn-sm btn-outline-danger btn-action" 
                                                 onclick="removeProfile('{{ profile_name }}', '{{ profile_info.type }}')">
@@ -314,11 +356,47 @@ function switchProfile(profileName) {
     apiCall('/api/switch_profile', {profile_name: profileName}, 
         function(result) {
             btn.innerHTML = '<i class="fas fa-check"></i> Active';
+            btn.className = 'btn btn-sm btn-success btn-action';
             setTimeout(() => location.reload(), 1000);
         },
         function(error) {
             btn.innerHTML = originalText;
             btn.disabled = false;
+        }
+    );
+}
+
+function editProfile(profileName, profileType) {
+    if (profileType === 'role') {
+        showAlert('info', 'Role profiles cannot be edited directly. Edit the source profile instead.');
+        return;
+    }
+    
+    document.getElementById('editProfileName').value = profileName;
+    document.getElementById('editAccessKey').value = '';
+    document.getElementById('editSecretKey').value = '';
+    document.getElementById('editSessionToken').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+    modal.show();
+}
+
+function saveProfileEdit() {
+    const formData = new FormData(document.getElementById('editProfileForm'));
+    const data = Object.fromEntries(formData);
+    
+    // Remove empty fields
+    Object.keys(data).forEach(key => {
+        if (data[key] === '') {
+            delete data[key];
+        }
+    });
+    
+    apiCall('/api/update_credentials', data, 
+        function(result) {
+            showAlert('success', result.message);
+            bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
+            setTimeout(() => location.reload(), 1000);
         }
     );
 }
@@ -368,6 +446,48 @@ function removeConfigProfile(profileName) {
             btn.disabled = false;
         }
     );
+}
+
+// Utility functions
+function apiCall(url, data, successCallback, errorCallback) {
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (successCallback) successCallback(data);
+        } else {
+            if (errorCallback) errorCallback(data);
+            else showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        if (errorCallback) errorCallback(error);
+        else showAlert('danger', 'An error occurred: ' + error.message);
+    });
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
 }
 </script>
 {% endblock %}

@@ -165,6 +165,10 @@
                                             <i class="fas fa-exchange-alt"></i> Switch to {{ env_name.upper() }}
                                         {% endif %}
                                     </button>
+                                    <button class="btn btn-outline-warning btn-sm" 
+                                            onclick="editEnvironment('{{ env_name }}', '{{ env_config.region }}', '{{ env_config.role_arn }}', '{{ env_config.description }}')">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
                                     <button class="btn btn-outline-danger btn-sm" 
                                             onclick="removeEnvironment('{{ env_name }}')"
                                             {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
@@ -231,6 +235,10 @@
                                                 {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
                                             <i class="fas fa-exchange-alt"></i>
                                         </button>
+                                        <button class="btn btn-outline-warning" 
+                                                onclick="editEnvironment('{{ env_name }}', '{{ env_config.region }}', '{{ env_config.role_arn }}', '{{ env_config.description }}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
                                         <button class="btn btn-outline-danger" 
                                                 onclick="removeEnvironment('{{ env_name }}')"
                                                 {{ 'disabled' if current_env.environment == env_name.upper() else '' }}>
@@ -243,6 +251,58 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Environment Modal -->
+<div class="modal fade" id="editEnvironmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Environment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editEnvironmentForm">
+                    <input type="hidden" id="editEnvName" name="env_name">
+                    <div class="mb-3">
+                        <label for="editEnvRegion" class="form-label">Region</label>
+                        <select class="form-select" id="editEnvRegion" name="region" required>
+                            <option value="us-east-1">US East 1 (N. Virginia)</option>
+                            <option value="us-east-2">US East 2 (Ohio)</option>
+                            <option value="us-west-1">US West 1 (N. California)</option>
+                            <option value="us-west-2">US West 2 (Oregon)</option>
+                            <option value="eu-west-1">Europe West 1 (Ireland)</option>
+                            <option value="eu-west-2">Europe West 2 (London)</option>
+                            <option value="eu-central-1">Europe Central 1 (Frankfurt)</option>
+                            <option value="ap-southeast-1">Asia Pacific Southeast 1 (Singapore)</option>
+                            <option value="ap-southeast-2">Asia Pacific Southeast 2 (Sydney)</option>
+                            <option value="ap-northeast-1">Asia Pacific Northeast 1 (Tokyo)</option>
+                            <option value="ap-northeast-2">Asia Pacific Northeast 2 (Seoul)</option>
+                            <option value="ap-south-1">Asia Pacific South 1 (Mumbai)</option>
+                            <option value="ca-central-1">Canada Central 1 (Central)</option>
+                            <option value="sa-east-1">South America East 1 (São Paulo)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editEnvRoleArn" class="form-label">Role ARN</label>
+                        <input type="text" class="form-control" id="editEnvRoleArn" name="role_arn" required 
+                               placeholder="arn:aws:iam::123456789012:role/YourRole">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editEnvDescription" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="editEnvDescription" name="description" 
+                               placeholder="Optional description">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveEnvironmentEdit()">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
             </div>
         </div>
     </div>
@@ -283,6 +343,29 @@ function switchEnvironment(envName) {
     );
 }
 
+function editEnvironment(envName, region, roleArn, description) {
+    document.getElementById('editEnvName').value = envName;
+    document.getElementById('editEnvRegion').value = region;
+    document.getElementById('editEnvRoleArn').value = roleArn;
+    document.getElementById('editEnvDescription').value = description;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editEnvironmentModal'));
+    modal.show();
+}
+
+function saveEnvironmentEdit() {
+    const formData = new FormData(document.getElementById('editEnvironmentForm'));
+    const data = Object.fromEntries(formData);
+    
+    apiCall('/api/update_environment', data, 
+        function(result) {
+            showAlert('success', result.message);
+            bootstrap.Modal.getInstance(document.getElementById('editEnvironmentModal')).hide();
+            setTimeout(() => location.reload(), 1000);
+        }
+    );
+}
+
 function removeEnvironment(envName) {
     if (!confirm(`Are you sure you want to remove the environment "${envName}"?`)) {
         return;
@@ -302,6 +385,48 @@ function removeEnvironment(envName) {
             btn.disabled = false;
         }
     );
+}
+
+// Utility functions
+function apiCall(url, data, successCallback, errorCallback) {
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (successCallback) successCallback(data);
+        } else {
+            if (errorCallback) errorCallback(data);
+            else showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        if (errorCallback) errorCallback(error);
+        else showAlert('danger', 'An error occurred: ' + error.message);
+    });
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
 }
 </script>
 {% endblock %}

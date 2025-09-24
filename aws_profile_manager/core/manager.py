@@ -1,0 +1,181 @@
+"""
+Main AWS Profile Manager
+"""
+
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+
+from aws_profile_manager.core.config import ConfigManager
+from aws_profile_manager.aws.credentials import AWSCredentialsManager
+from aws_profile_manager.aws.environments import EnvironmentManager
+from aws_profile_manager.roles.assume_role import AWSRoleManager
+from aws_profile_manager.s3.manager import S3Manager
+from aws_profile_manager.utils.logging import LoggerMixin, setup_logging
+
+
+class AWSProfileManager(LoggerMixin):
+    """Main AWS Profile Manager that coordinates all operations"""
+    
+    def __init__(self, config_file: str = 'config.json'):
+        # Setup logging
+        setup_logging()
+        
+        # Initialize components
+        self.config_manager = ConfigManager(config_file)
+        self.credentials_manager = AWSCredentialsManager()
+        self.environment_manager = EnvironmentManager(self.config_manager)
+        self.role_manager = AWSRoleManager()
+        self.s3_manager = S3Manager()
+        
+        self.logger.info("AWS Profile Manager initialized")
+    
+    def sync_credentials(self) -> bool:
+        """Sync credentials from base file"""
+        base_path = self.config_manager.get_base_credentials_path()
+        if not base_path:
+            self.logger.error("Base credentials path not configured")
+            return False
+        
+        return self.credentials_manager.sync_credentials_from_base(Path(base_path))
+    
+    def switch_profile(self, profile_name: str) -> bool:
+        """Switch to a specific profile"""
+        return self.credentials_manager.switch_profile(profile_name)
+    
+    def switch_environment(self, env_name: str) -> bool:
+        """Switch to a specific environment"""
+        return self.environment_manager.switch_environment(env_name)
+    
+    def list_profiles(self) -> Dict[str, Dict[str, str]]:
+        """List all profiles"""
+        return self.credentials_manager.list_profiles()
+    
+    def list_environments(self) -> Dict[str, Dict[str, str]]:
+        """List all environments"""
+        return self.environment_manager.list_environments()
+    
+    def save_credentials(self, profile_name: str, access_key: str, secret_key: str, session_token: str = None) -> bool:
+        """Save credentials for a profile"""
+        return self.credentials_manager.save_credentials(profile_name, access_key, secret_key, session_token)
+    
+    def save_role_profile(self, profile_name: str, role_arn: str, source_profile: str, region: str = 'us-east-1', external_id: str = None) -> bool:
+        """Save a role-based profile"""
+        return self.role_manager.save_role_profile(profile_name, role_arn, source_profile, region, external_id)
+    
+    def assume_role(self, role_arn: str, session_name: str, external_id: str = None, duration: int = 3600) -> Dict:
+        """Assume an AWS role"""
+        return self.role_manager.assume_role(role_arn, session_name, external_id, duration)
+    
+    def list_s3_buckets(self) -> Dict:
+        """List S3 buckets"""
+        return self.s3_manager.list_buckets()
+    
+    def list_s3_objects(self, bucket_name: str, prefix: str = '', max_keys: int = 20, continuation_token: str = None) -> Dict:
+        """List S3 objects"""
+        return self.s3_manager.list_objects(bucket_name, prefix, max_keys, continuation_token)
+    
+    def download_s3_file(self, bucket_name: str, object_key: str, local_path: str) -> Dict:
+        """Download file from S3"""
+        return self.s3_manager.download_file(bucket_name, object_key, local_path)
+    
+    def upload_s3_file(self, local_path: str, bucket_name: str, object_key: str) -> Dict:
+        """Upload file to S3"""
+        return self.s3_manager.upload_file(local_path, bucket_name, object_key)
+    
+    def delete_s3_object(self, bucket_name: str, object_key: str) -> Dict:
+        """Delete S3 object"""
+        return self.s3_manager.delete_object(bucket_name, object_key)
+    
+    def get_status(self) -> Dict:
+        """Get current status"""
+        current_profile = self.credentials_manager.get_current_profile()
+        profiles = self.list_profiles()
+        environments = self.list_environments()
+        current_env = self.environment_manager.get_current_environment()
+        
+        return {
+            'current_profile': current_profile,
+            'current_environment': current_env,
+            'profiles': profiles,
+            'environments': environments,
+            'base_credentials_path': self.config_manager.get_base_credentials_path()
+        }
+    
+    def add_environment(self, env_name: str, region: str, role_arn: str, description: str = '') -> bool:
+        """Add a new environment"""
+        return self.environment_manager.add_environment(env_name, region, role_arn, description)
+    
+    def update_environment(self, env_name: str, region: str = None, role_arn: str = None, description: str = None) -> bool:
+        """Update an existing environment"""
+        return self.environment_manager.update_environment(env_name, region, role_arn, description)
+    
+    def remove_environment(self, env_name: str) -> bool:
+        """Remove an environment"""
+        return self.environment_manager.remove_environment(env_name)
+    
+    def remove_profile(self, profile_name: str) -> bool:
+        """Remove a profile"""
+        return self.credentials_manager.remove_profile(profile_name)
+
+    def get_credentials_status(self) -> Dict:
+        """Get credentials status information"""
+        try:
+            base_path = Path(self.config_manager.get_base_credentials_path())
+            base_file_exists = base_path.exists() if base_path else False
+            
+            # Check default profile
+            profiles = self.credentials_manager.list_profiles()
+            default_profile_valid = 'default' in profiles and 'aws_access_key_id' in profiles.get('default', {})
+            
+            # Check infrrd-master profile
+            infrrd_master_valid = 'infrrd-master' in profiles and 'aws_access_key_id' in profiles.get('infrrd-master', {})
+            
+            # Check if in sync (simplified check)
+            in_sync = base_file_exists and default_profile_valid
+            
+            # Get access keys
+            base_access_key = "N/A"
+            default_access_key = profiles.get('default', {}).get('aws_access_key_id', 'N/A')
+            infrrd_access_key = profiles.get('infrrd-master', {}).get('aws_access_key_id', 'N/A')
+            
+            if base_file_exists:
+                try:
+                    with open(base_path, 'r') as f:
+                        content = f.read()
+                        # Simple extraction of access key
+                        for line in content.split('\n'):
+                            if 'aws_access_key_id' in line and '=' in line:
+                                base_access_key = line.split('=')[1].strip()
+                                break
+                except:
+                    pass
+            
+            # Check if base credentials are valid (has access key)
+            base_credentials_valid = base_file_exists and base_access_key != 'N/A' and base_access_key.strip() != ''
+            
+            # Check if AWS credentials file exists
+            aws_credentials_exists = self.credentials_manager.credentials_path.exists()
+            
+            return {
+                'base_file_exists': base_file_exists,
+                'base_credentials_valid': base_credentials_valid,
+                'aws_credentials_exists': aws_credentials_exists,
+                'default_profile_valid': default_profile_valid,
+                'infrrd_master_valid': infrrd_master_valid,
+                'in_sync': in_sync,
+                'base_access_key': base_access_key,
+                'default_access_key': default_access_key,
+                'infrrd_access_key': infrrd_access_key
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting credentials status: {e}")
+            return {
+                'base_file_exists': False,
+                'default_profile_valid': False,
+                'infrrd_master_valid': False,
+                'in_sync': False,
+                'base_access_key': 'N/A',
+                'default_access_key': 'N/A',
+                'infrrd_access_key': 'N/A'
+            }

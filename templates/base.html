@@ -10,6 +10,10 @@
         .navbar-brand {
             font-weight: bold;
         }
+        .navbar .container-fluid {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
         .card {
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
             border: 1px solid rgba(0, 0, 0, 0.125);
@@ -56,7 +60,7 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
+        <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('index') }}">
                 <i class="fas fa-cloud"></i> AWS Profile Manager
             </a>
@@ -85,6 +89,16 @@
                             <i class="fas fa-key"></i> Credentials
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/assume-role-page">
+                            <i class="fas fa-user-tag"></i> Assume Role
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('s3') }}">
+                            <i class="fas fa-cloud"></i> S3
+                        </a>
+                    </li>
                 </ul>
                 <span class="navbar-text">
                     <i class="fas fa-user-circle"></i> 
@@ -94,7 +108,7 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container-fluid mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
