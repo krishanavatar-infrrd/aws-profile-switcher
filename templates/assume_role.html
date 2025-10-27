@@ -56,10 +56,16 @@
                                         <strong>Duration:</strong> {{ config.duration }} seconds
                                     </small>
                                 </div>
-                                <button class="btn btn-primary btn-sm" 
-                                        onclick="assumePredefinedRole('{{ config_name }}', '{{ config.role_arn }}', '{{ config.external_id or '' }}', '{{ config.session_name }}', {{ config.duration }})">
-                                    <i class="fas fa-play"></i> Assume Role
-                                </button>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-primary btn-sm" 
+                                            onclick="assumePredefinedRole('{{ config_name }}', '{{ config.role_arn }}', '{{ config.external_id or '' }}', '{{ config.session_name }}', {{ config.duration }}, 'script')">
+                                        <i class="fas fa-terminal"></i> Use in CLI
+                                    </button>
+                                    <button class="btn btn-success btn-sm" 
+                                            onclick="assumePredefinedRole('{{ config_name }}', '{{ config.role_arn }}', '{{ config.external_id or '' }}', '{{ config.session_name }}', {{ config.duration }}, 'boto3')">
+                                        <i class="fab fa-python"></i> Use in Python
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -202,15 +208,17 @@
 <script>
 let editingConfigName = null;
 
-function assumePredefinedRole(configName, roleArn, externalId, sessionName, duration) {
+function assumePredefinedRole(configName, roleArn, externalId, sessionName, duration, method) {
     const formData = {
         role_arn: roleArn,
         session_name: sessionName,
         external_id: externalId || null,
-        duration: duration
+        duration: duration,
+        method: method || 'boto3',
+        config_name: configName
     };
     
-    assumeRole(formData, `Predefined role: ${configName}`);
+    assumeRole(formData, `Predefined role: ${configName}`, method);
 }
 
 function editRoleConfig(configName, roleArn, externalId, sessionName, duration, description) {
@@ -339,8 +347,10 @@ document.getElementById('addRoleModal').addEventListener('hidden.bs.modal', func
     document.getElementById('roleConfigForm').reset();
 });
 
-function assumeRole(formData, description = 'Custom role') {
-    fetch('/api/assume_role', {
+function assumeRole(formData, description = 'Custom role', method = 'boto3') {
+    const endpoint = method === 'script' ? '/api/assume_role_script' : '/api/assume_role';
+    
+    fetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -353,33 +363,69 @@ function assumeRole(formData, description = 'Custom role') {
         const resultsContent = document.getElementById('resultsContent');
         
         if (data.success) {
-            resultsContent.innerHTML = `
-                <div class="alert alert-success">
-                    <h6><i class="fas fa-check-circle"></i> Role Assumed Successfully</h6>
-                    <p><strong>Description:</strong> ${description}</p>
-                    <hr>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Access Key ID:</strong><br>
-                            <code>${data.credentials.AccessKeyId}</code>
+            if (method === 'script') {
+                // Show script ready message
+                const scriptPath = data.script_path || '~/assume-role.sh';
+                resultsContent.innerHTML = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle"></i> Script Generated Successfully!</h6>
+                        <p><strong>Role:</strong> ${description}</p>
+                        <hr>
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-terminal"></i> Run This Command in Your Terminal</h6>
+                            <p>Copy and run this single command:</p>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control font-monospace" id="sourceCommand" value="source ${scriptPath}" readonly style="font-size: 1.1em;">
+                                <button class="btn btn-primary" type="button" onclick="copyToClipboard('sourceCommand')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <small class="text-muted mt-2 d-block">After running, you can use AWS CLI: <code>aws s3 ls</code></small>
                         </div>
-                        <div class="col-md-6">
-                            <strong>Expires:</strong><br>
-                            <code>${new Date(data.credentials.Expiration).toLocaleString()}</code>
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-lightbulb"></i> Pro Tip</h6>
+                            <p class="mb-2">Always use the same command - the script updates automatically when you select a different role!</p>
+                            <p class="mb-0">You can also create an alias in your <code>~/.bashrc</code>:</p>
+                            <pre class="mb-0">alias assume="source ${scriptPath}"</pre>
+                            <p class="mt-2 mb-0">Then just run: <code>assume</code></p>
                         </div>
                     </div>
-                    <hr>
-                    <div class="alert alert-info">
-                        <h6><i class="fas fa-info-circle"></i> How to Use These Credentials</h6>
-                        <p>You can use these temporary credentials by setting the following environment variables:</p>
-                        <pre class="mb-0">
-export AWS_ACCESS_KEY_ID=${data.credentials.AccessKeyId}
-export AWS_SECRET_ACCESS_KEY=${data.credentials.SecretAccessKey}
-export AWS_SESSION_TOKEN=${data.credentials.SessionToken}
-                        </pre>
+                `;
+            } else {
+                // Show boto3/profile instructions
+                resultsContent.innerHTML = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle"></i> Role Assumed Successfully</h6>
+                        <p><strong>Description:</strong> ${description}</p>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Profile Name:</strong><br>
+                                <code>${data.profile_name || 'assumed-role'}</code>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Expires:</strong><br>
+                                <code>${new Date(data.credentials.Expiration).toLocaleString()}</code>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-code"></i> Usage</h6>
+                            <p>Use with AWS CLI:</p>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control" id="cliCommand" value="aws s3 ls --profile ${data.profile_name || 'assumed-role'}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('cliCommand')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <p>Or in Python with boto3:</p>
+                            <pre class="mb-0">import boto3
+session = boto3.Session(profile_name='${data.profile_name || 'assumed-role'}')
+s3 = session.client('s3')</pre>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         } else {
             resultsContent.innerHTML = `
                 <div class="alert alert-danger">
@@ -408,6 +454,21 @@ export AWS_SESSION_TOKEN=${data.credentials.SessionToken}
         resultsSection.style.display = 'block';
         resultsSection.scrollIntoView({ behavior: 'smooth' });
     });
+}
+
+function copyToClipboard(elementId) {
+    const copyText = document.getElementById(elementId);
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+    
+    // Show feedback
+    const button = event.target.closest('button');
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    setTimeout(() => {
+        button.innerHTML = originalHTML;
+    }, 2000);
 }
 
 document.getElementById('assumeRoleForm').addEventListener('submit', function(e) {

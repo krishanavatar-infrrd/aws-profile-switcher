@@ -18,58 +18,55 @@ class EnvironmentManager(LoggerMixin):
         self.config_path = Path.home() / '.aws' / 'config'
     
     def switch_environment(self, env_name: str) -> bool:
-        """Switch to a specific environment by updating the [profile default] section"""
+        """Switch to a specific environment by updating only the [profile default] section"""
         self.logger.info(f"Switching to {env_name.upper()} environment")
-        
+
         environments = self.config_manager.get_environments()
         if env_name not in environments:
             self.logger.error(f"Environment {env_name} not found in configuration")
             return False
-        
+
         env_config = environments[env_name]
-        
+
         try:
             # Create .aws directory if it doesn't exist
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Read existing config
             config = configparser.ConfigParser()
             if self.config_path.exists():
                 config.read(self.config_path)
-            
-            # Remove all existing environment-specific profile sections
-            # Keep only [profile default] and any other non-environment profiles
-            sections_to_remove = []
-            for section in config.sections():
-                if section.startswith('profile ') and section != 'profile default':
-                    # Check if this is an environment profile (exists in our environments config)
-                    profile_name = section[8:]  # Remove 'profile ' prefix
-                    if profile_name in environments:
-                        sections_to_remove.append(section)
-            
-            for section in sections_to_remove:
-                config.remove_section(section)
-                self.logger.info(f"Removed old environment profile: {section}")
-            
-            # Update the [profile default] section with the new environment
+
+            # Update ONLY the [profile default] section - don't create multiple profiles
             if not config.has_section('profile default'):
                 config.add_section('profile default')
-            
+
+            # Set the environment configuration
             config.set('profile default', 'role_arn', env_config['role_arn'])
             config.set('profile default', 'region', env_config['region'])
             config.set('profile default', 'source_profile', 'infrrd-master')
             config.set('profile default', 'duration_seconds', '3600')
-            
+
+            # Remove any other profile sections that might conflict
+            sections_to_remove = []
+            for section in config.sections():
+                if section.startswith('profile ') and section != 'profile default':
+                    sections_to_remove.append(section)
+
+            for section in sections_to_remove:
+                config.remove_section(section)
+                self.logger.info(f"Removed conflicting profile: {section}")
+
             # Write to file
             with open(self.config_path, 'w') as f:
                 config.write(f)
-            
+
             self.logger.info(f"Switched to {env_name.upper()} environment")
             self.logger.info(f"Updated [profile default] with role_arn: {env_config['role_arn']}")
             self.logger.info(f"Updated [profile default] with region: {env_config['region']}")
             self.logger.info(f"Updated [profile default] with source_profile: infrrd-master")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to switch environment: {e}")
             return False

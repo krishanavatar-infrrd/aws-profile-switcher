@@ -5,19 +5,27 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7af96083-7da1-4fb0-b3de-a7043a3ed8d4" name="Changes" comment="add aws profile switcher ui and template">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/aws-profile-switcher.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/aws_profile_manager_flask.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager_flask.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/aws_profile_switcher.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_switcher.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/base.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/base.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/environments.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/environments.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/profiles.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/profiles.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager.log" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/api/flask_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager/api/flask_app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/api/flask_app.py.backup" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/api/flask_app.py.backup2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/api/flask_app.py.backup3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/api/flask_app.py.backup4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/aws/environments.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager/aws/environments.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/aws/environments.py.backup" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/core/config.py.backup" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/core/manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager/core/manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/core/manager.py.backup" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/roles/assume_role.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager/roles/assume_role.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/s3/manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/aws_profile_manager/s3/manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager/utils/logging.py.backup" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_manager_flask.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/aws_profile_switcher.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/assume_role.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/assume_role.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/s3.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/s3.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,6 +35,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;krishanavatar-infrrd&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/krishanavatar-infrrd/aws-profile-switcher.git&quot;,
+    &quot;accountId&quot;: &quot;7805f62a-2bc2-42ac-8f22-9ce5b2f9d970&quot;
+  }
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
 }</component>
@@ -122,7 +142,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756823166224</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="add aws profile switcher ui and template">
+      <option name="closed" value="true" />
+      <created>1758686511836</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1758686511836</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

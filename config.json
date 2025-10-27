@@ -1,5 +1,6 @@
 {
   "base_credentials_path": "/home/krishnavatar/Downloads/credentials",
+  "base_profile": "default",
   "environments": {
     "dev": {
       "region": "us-west-2",
@@ -42,6 +43,10 @@
       "description": "Master credentials profile for role assumption"
     }
   },
+  "predefined_buckets": [
+    "swbc-infrrd-ingress-prod-us-east-1",
+    "swbc-infrrd-ingress-beta-us-east-1"
+  ],
   "assume_role_configs": {
     "swbc-ingress-beta": {
       "role_arn": "arn:aws:iam::922020051898:role/infrrd-uat-integration-beta-ingress-iam-role",
@@ -50,7 +55,7 @@
       "duration": 3600,
       "description": "SWBC Ingress Beta Role"
     },
-     "swbc-egress-beta": {
+    "swbc-egress-beta": {
       "role_arn": "arn:aws:iam::922020051898:role/swbc-idp-beta-infrrd-integration-egress-iam-role",
       "session_name": "infrrd-download-session",
       "external_id": "8bc27afc-2c2a-422a-93cc-590c6e31cd61",

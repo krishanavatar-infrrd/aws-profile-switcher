@@ -11,87 +11,246 @@
     </div>
 </div>
 
-<!-- Assume Role Section -->
+<!-- Status Card -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-user-tag"></i> Assume Role
-                </h5>
-            </div>
             <div class="card-body">
-                <form id="assumeRoleForm">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="roleArn" class="form-label">Role ARN</label>
-                                <input type="text" class="form-control" id="roleArn" name="role_arn" required 
-                                       placeholder="arn:aws:iam::123456789012:role/YourRole">
-                            </div>
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="card-title mb-1">
+                            <i class="fas fa-info-circle"></i> Current Credentials
+                        </h5>
+                        <p class="card-text text-muted mb-2">
+                            Profile: <span id="currentProfile" class="fw-bold">Loading...</span> |
+                            Environment: <span id="currentEnv" class="fw-bold">Loading...</span>
+                        </p>
+                        <div id="credentialInfo" class="mb-2" style="display: none;">
+                            <small class="text-muted">
+                                Account: <span id="currentAccount">Loading...</span> |
+                                Region: <span id="currentRegion">us-east-1</span>
+                            </small>
                         </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label for="sessionName" class="form-label">Session Name</label>
-                                <input type="text" class="form-control" id="sessionName" name="session_name" 
-                                       value="temp-session" placeholder="temp-session">
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label for="externalId" class="form-label">External ID (Optional)</label>
-                                <input type="text" class="form-control" id="externalId" name="external_id" 
-                                       placeholder="External ID">
-                            </div>
+                        <div id="assumedRoleInfo" class="mb-0" style="display: none;">
+                            <span class="badge bg-success">
+                                <i class="fas fa-user-shield"></i> Assumed Role: <span id="assumedRoleName">Loading...</span>
+                            </span>
+                            <button class="btn btn-outline-danger btn-sm ms-2" onclick="removeAssumedRole()">
+                                <i class="fas fa-times"></i> Remove Role
+                            </button>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-user-tag"></i> Assume Role
-                    </button>
-                </form>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshBuckets()">
+                            <i class="fas fa-sync-alt"></i> Refresh All
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- S3 Buckets -->
+<!-- Search by Complete Path -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-search-plus"></i> Search by Complete Path
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="bucketInput" placeholder="bucket-name">
+                            <span class="input-group-text">/</span>
+                            <input type="text" class="form-control" id="objectKeyInput" placeholder="path/to/file.txt">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary" onclick="searchByPath()">
+                            <i class="fas fa-search"></i> Search Object
+                        </button>
+                    </div>
+                </div>
+                <div id="searchResult" class="mt-3" style="display: none;">
+                    <div class="alert" id="searchResultAlert"></div>
+                    <div id="objectDetails" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <strong>Object Details:</strong><br>
+                                Bucket: <span id="objectBucket"></span><br>
+                                Key: <span id="objectKey"></span><br>
+                                Size: <span id="objectSize"></span><br>
+                                Last Modified: <span id="objectLastModified"></span><br>
+                                Content Type: <span id="objectContentType"></span>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-success btn-sm" id="downloadBtn" onclick="downloadByUrl()">
+                                    <i class="fas fa-download"></i> Download to Browser
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- S3 Bucket Management -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
-                    <i class="fas fa-bucket"></i> S3 Buckets
+                    <i class="fas fa-bucket"></i> S3 Bucket Management
                 </h5>
-                <button class="btn btn-outline-primary btn-sm" onclick="refreshBuckets()">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                </button>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshBuckets()">
+                        <i class="fas fa-sync-alt"></i> Refresh All
+                    </button>
+                </div>
             </div>
             <div class="card-body">
-                <div id="bucketsList">
-                    {% if buckets %}
-                        <div class="row">
-                            {% for bucket in buckets %}
-                            <div class="col-md-6 col-lg-4 mb-3">
-                                <div class="card bucket-card" onclick="selectBucket('{{ bucket.name }}')">
-                                    <div class="card-body">
-                                        <h6 class="card-title">
-                                            <i class="fas fa-bucket"></i> {{ bucket.name }}
-                                        </h6>
-                                        <small class="text-muted">
-                                            Created: {{ bucket.creation_date[:10] }}
-                                        </small>
-                                    </div>
+                <!-- Bucket Search and Add -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="bucketSearchInput" placeholder="Search buckets...">
+                            <button class="btn btn-outline-secondary" onclick="clearBucketSearch()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="newBucketInput" placeholder="Add custom bucket">
+                            <button class="btn btn-success" onclick="addCustomBucket()">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bucket Lists -->
+                <div class="row">
+                    <!-- Predefined Buckets -->
+                    <div class="col-md-4">
+                        <h6 class="text-primary">
+                            <i class="fas fa-star"></i> Predefined Buckets
+                            <small class="text-muted" id="predefinedCount"></small>
+                            <button class="btn btn-sm btn-outline-primary ms-2" onclick="showAddPredefinedBucketModal()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </h6>
+                        <div id="predefinedBucketsList" class="mb-3">
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
                                 </div>
                             </div>
-                            {% endfor %}
                         </div>
-                    {% else %}
-                        <div class="text-center text-muted">
-                            <i class="fas fa-bucket fa-3x mb-3"></i>
-                            <p>No buckets found or unable to connect to S3</p>
+                    </div>
+
+                    <!-- Custom Buckets -->
+                    <div class="col-md-4">
+                        <h6 class="text-success">
+                            <i class="fas fa-user"></i> Custom Buckets
+                            <small class="text-muted" id="customCount"></small>
+                        </h6>
+                        <div id="customBucketsList" class="mb-3">
+                            <div class="text-center text-muted">
+                                <small>No custom buckets added yet</small>
+                            </div>
                         </div>
-                    {% endif %}
+                    </div>
+
+                    <!-- Detected Buckets -->
+                    <div class="col-md-4">
+                        <h6 class="text-info">
+                            <i class="fas fa-search"></i> Detected Buckets
+                            <small class="text-muted" id="detectedCount"></small>
+                        </h6>
+                        <div id="detectedBucketsList" class="mb-3">
+                            <div class="text-center text-muted">
+                                <small>Checking permissions...</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Permission Alert -->
+                <div id="bucketsPermissionAlert" class="alert alert-warning" style="display: none;">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Permission Limited</h6>
+                    <p id="permissionMessage">This role does not have permission to list all S3 buckets. Try selecting from predefined buckets or add custom buckets you know you have access to.</p>
+                </div>
+
+                <!-- Manual Bucket Entry (Fallback) -->
+                <div class="row mt-3" id="manualBucketSection" style="display: none;">
+                    <div class="col-12">
+                        <hr>
+                        <h6 class="text-muted">
+                            <i class="fas fa-keyboard"></i> Manual Bucket Entry
+                        </h6>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="manualBucketInput" placeholder="Enter bucket name manually">
+                            <button class="btn btn-primary" onclick="checkManualBucket()">
+                                <i class="fas fa-search"></i> Check Access
+                            </button>
+                        </div>
+                        <small class="text-muted">Use this if you know a specific bucket name but it's not in the lists above</small>
+                        <div id="bucketCheckResult" class="mt-2" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Predefined Bucket Modal -->
+<div class="modal fade" id="addPredefinedBucketModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Predefined Bucket</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="predefinedBucketInput" class="form-label">Bucket Name</label>
+                    <input type="text" class="form-control" id="predefinedBucketInput" placeholder="bucket-name">
+                    <div class="form-text">Enter the bucket name to add to predefined list</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addPredefinedBucket()">Add Bucket</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Predefined Bucket Modal -->
+<div class="modal fade" id="editPredefinedBucketModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Predefined Bucket</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="editPredefinedBucketInput" class="form-label">Bucket Name</label>
+                    <input type="text" class="form-control" id="editPredefinedBucketInput" placeholder="bucket-name">
+                    <input type="hidden" id="editPredefinedBucketOriginal">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updatePredefinedBucket()">Update Bucket</button>
             </div>
         </div>
     </div>
@@ -106,7 +265,13 @@
                     <i class="fas fa-folder"></i> <span id="currentBucketName">Bucket Contents</span>
                 </h5>
                 <div>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="goUp()" id="goUpBtn" style="display: none;">
+                    <button class="btn btn-outline-secondary btn-sm me-1" onclick="copyCurrentPath(false)" title="Copy current path" id="copyPathBtn" style="display: none;">
+                        <i class="fas fa-copy"></i> Copy Path
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm me-1" onclick="copyCurrentPath(true)" title="Copy full S3 path" id="copyFullPathBtn" style="display: none;">
+                        <i class="fas fa-copy"></i> <i class="fas fa-bucket"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm me-1" onclick="goUp()" id="goUpBtn" style="display: none;">
                         <i class="fas fa-arrow-up"></i> Up
                     </button>
                     <button class="btn btn-outline-primary btn-sm" onclick="refreshObjects()">
@@ -121,6 +286,20 @@
                             <li class="breadcrumb-item active" id="rootBreadcrumb">Root</li>
                         </ol>
                     </nav>
+                </div>
+
+                <!-- Folder Search -->
+                <div class="row mb-3" id="folderSearchSection" style="display: none;">
+                    <div class="col-12">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="folderSearchInput" placeholder="Search files and folders in current directory...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearFolderSearch()">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1" id="folderSearchResultsCount"></small>
+                    </div>
                 </div>
                 
                 <div id="objectsList">
@@ -176,67 +355,775 @@
 let currentBucket = '';
 let currentPrefix = '';
 let continuationToken = null;
-let currentObjects = [];
+let currentObjects = { folders: [], objects: [] };
+let allBuckets = [];
+let folderSearchTerm = '';
+let predefinedBuckets = [];
+let customBuckets = [];
+let bucketSearchTerm = '';
 
-// Assume Role Form
-document.getElementById('assumeRoleForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData);
-    
-    apiCall('/api/assume_role', data, 
-        function(result) {
-            showAlert('success', `Successfully assumed role. Profile: ${result.profile_name}`);
-            setTimeout(() => location.reload(), 1000);
-        }
-    );
+document.addEventListener('DOMContentLoaded', function() {
+    loadStatus();
+    loadBuckets();
+    loadCredentialInfo();
+    setupBucketSearch();
 });
 
+function loadStatus() {
+    fetch('/api/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const profileSpan = document.getElementById('currentProfile');
+                const envSpan = document.getElementById('currentEnv');
+
+                if (profileSpan) profileSpan.textContent = data.current_profile || 'default';
+                if (envSpan) envSpan.textContent = data.current_environment || 'Unknown';
+
+                // Update status card to show session info
+                updateStatusCard(data);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading status:', error);
+        });
+}
+
+function loadCredentialInfo() {
+    fetch('/api/get_s3_credential_info')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('currentAccount').textContent = data.account_id || 'Unknown';
+                document.getElementById('currentRegion').textContent = data.region || 'us-east-1';
+                document.getElementById('credentialInfo').style.display = 'block';
+
+                if (data.is_assumed_role) {
+                    document.getElementById('assumedRoleName').textContent = data.role_name || 'Unknown Role';
+                    document.getElementById('assumedRoleInfo').style.display = 'block';
+                } else {
+                    document.getElementById('assumedRoleInfo').style.display = 'none';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading credential info:', error);
+        });
+}
+
+function updateStatusCard(data) {
+    const statusCard = document.querySelector('.card-body');
+    if (!statusCard) return;
+
+    let statusHTML = `
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="card-title mb-1">
+                    <i class="fas fa-info-circle"></i> Current Credentials
+                </h5>
+                <p class="card-text text-muted mb-0">
+                    Profile: <span class="fw-bold">${data.data.current_profile || 'default'}</span> |
+                    Environment: <span class="fw-bold">${data.data.current_environment || 'Unknown'}</span>
+                </p>
+    `;
+
+    // Show session credentials if active
+    if (data.session && data.session.session_credentials_active) {
+        const expiration = new Date(data.session.credentials_expire);
+        const timeUntilExpiry = Math.floor((expiration - new Date()) / 1000 / 60);
+
+        statusHTML += `
+                <div class="mt-2">
+                    <span class="badge bg-success">
+                        <i class="fas fa-check-circle"></i> Session Credentials Active
+                    </span>
+                    <small class="text-muted ms-2">
+                        Role: ${data.session.assumed_role} |
+                        Expires: ${expiration.toLocaleString()} (${timeUntilExpiry} min)
+                    </small>
+                </div>
+        `;
+    }
+
+    statusHTML += `
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-outline-primary btn-sm" onclick="refreshBuckets()">
+                    <i class="fas fa-sync-alt"></i> Refresh All
+                </button>
+            </div>
+        </div>
+    `;
+
+    statusCard.innerHTML = statusHTML;
+}
+
+function loadBuckets() {
+    // Load predefined buckets
+    loadPredefinedBuckets();
+
+    // Load custom buckets
+    loadCustomBuckets();
+
+    // Try to list all buckets (may fail due to permissions)
+    checkBucketListingPermission();
+}
+
+function displayDetectedBuckets() {
+    const detectedBucketsList = document.getElementById('detectedBucketsList');
+    const detectedCount = document.getElementById('detectedCount');
+
+    if (!detectedBucketsList || !detectedCount) return;
+
+    // Update count
+    detectedCount.textContent = `(${allBuckets.length})`;
+
+    if (allBuckets.length === 0) {
+        detectedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No buckets automatically detected</small></div>';
+        return;
+    }
+
+    // Filter by search term
+    let displayBuckets = allBuckets;
+    if (bucketSearchTerm) {
+        displayBuckets = allBuckets.filter(bucket =>
+            bucket.name.toLowerCase().includes(bucketSearchTerm.toLowerCase())
+        );
+    }
+
+    if (displayBuckets.length === 0) {
+        detectedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No matching detected buckets</small></div>';
+        return;
+    }
+
+    let html = '';
+    displayBuckets.forEach(bucket => {
+        html += `
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                <div>
+                    <code class="small">${bucket.name}</code>
+                    <br>
+                    <small class="text-muted">Created: ${new Date(bucket.creation_date).toLocaleDateString()}</small>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="selectBucket('${bucket.name}')">
+                        <i class="fas fa-folder-open"></i> Browse
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    detectedBucketsList.innerHTML = html;
+}
+
+function loadPredefinedBuckets() {
+    const predefinedBucketsList = document.getElementById('predefinedBucketsList');
+
+    fetch('/api/get_predefined_buckets')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                predefinedBuckets = data.buckets || [];
+                displayPredefinedBuckets(predefinedBuckets);
+            } else {
+                predefinedBucketsList.innerHTML = `<div class="alert alert-danger">Error loading predefined buckets</div>`;
+            }
+        })
+        .catch(error => {
+            predefinedBucketsList.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+}
+
+function loadCustomBuckets() {
+    const customBucketsList = document.getElementById('customBucketsList');
+
+    fetch('/api/list_custom_buckets')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                customBuckets = data.buckets || [];
+                displayCustomBuckets(customBuckets);
+            } else {
+                customBucketsList.innerHTML = `<div class="alert alert-danger">Error loading custom buckets</div>`;
+            }
+        })
+        .catch(error => {
+            customBucketsList.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+}
+
+function checkBucketListingPermission() {
+    console.log('Checking bucket listing permission...');
+    fetch('/api/list_s3_buckets')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Bucket listing response:', data);
+            if (data.success) {
+                allBuckets = data.buckets || [];
+                console.log(`Found ${allBuckets.length} buckets automatically`);
+                const canListAllBuckets = data.can_list_all_buckets !== false;
+                if (!canListAllBuckets) {
+                    showPermissionLimitedAlert(data.message);
+                }
+                // Display the detected buckets
+                displayDetectedBuckets();
+            } else {
+                console.error('Bucket listing failed:', data.message);
+                // If listing fails, show permission alert
+                showPermissionLimitedAlert("Unable to list S3 buckets. This role may not have ListAllMyBuckets permission.");
+            }
+        })
+        .catch(error => {
+            showPermissionLimitedAlert("Error checking bucket permissions.");
+        });
+}
+
+function showPermissionLimitedAlert(message) {
+    const alertDiv = document.getElementById('bucketsPermissionAlert');
+    const messageDiv = document.getElementById('permissionMessage');
+    const manualSection = document.getElementById('manualBucketSection');
+
+    messageDiv.textContent = message || "This role does not have permission to list all S3 buckets. Try selecting from predefined buckets or add custom buckets you know you have access to.";
+    alertDiv.style.display = 'block';
+    manualSection.style.display = 'block';
+}
+
+function displayPredefinedBuckets(buckets) {
+    const predefinedBucketsList = document.getElementById('predefinedBucketsList');
+    const predefinedCount = document.getElementById('predefinedCount');
+
+    // Update count
+    predefinedCount.textContent = `(${buckets.length})`;
+
+    if (buckets.length === 0) {
+        predefinedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No predefined buckets configured</small></div>';
+        return;
+    }
+
+    // Filter by search term
+    let displayBuckets = buckets;
+    if (bucketSearchTerm) {
+        displayBuckets = buckets.filter(bucket =>
+            bucket.toLowerCase().includes(bucketSearchTerm.toLowerCase())
+        );
+    }
+
+    if (displayBuckets.length === 0) {
+        predefinedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No matching predefined buckets</small></div>';
+        return;
+    }
+
+    let html = '';
+    displayBuckets.forEach(bucket => {
+        html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                <div style="flex-grow: 1;">
+                    <code style="color: #0d6efd;">${bucket}</code>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" style="margin-right: 2px;" onclick="checkBucketAccess('${bucket}')">
+                        <i class="fas fa-search"></i> Check
+                    </button>
+                    <button class="btn btn-sm btn-success" style="margin-right: 2px;" onclick="selectBucket('${bucket}')">
+                        <i class="fas fa-folder-open"></i> Browse
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning" style="margin-right: 2px;" onclick="editPredefinedBucket('${bucket}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deletePredefinedBucket('${bucket}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    predefinedBucketsList.innerHTML = html;
+}
+
+function displayCustomBuckets(buckets) {
+    const customBucketsList = document.getElementById('customBucketsList');
+    const customCount = document.getElementById('customCount');
+
+    // Update count
+    customCount.textContent = `(${buckets.length})`;
+
+    if (buckets.length === 0) {
+        customBucketsList.innerHTML = '<div class="text-center text-muted"><small>No custom buckets added yet</small></div>';
+        return;
+    }
+
+    // Filter by search term
+    let displayBuckets = buckets;
+    if (bucketSearchTerm) {
+        displayBuckets = buckets.filter(bucket =>
+            bucket.toLowerCase().includes(bucketSearchTerm.toLowerCase())
+        );
+    }
+
+    if (displayBuckets.length === 0) {
+        customBucketsList.innerHTML = '<div class="text-center text-muted"><small>No matching custom buckets</small></div>';
+        return;
+    }
+
+    let html = '';
+    displayBuckets.forEach(bucket => {
+        html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                <div style="flex-grow: 1;">
+                    <code style="color: #198754;">${bucket}</code>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" style="margin-right: 4px;" onclick="checkBucketAccess('${bucket}')">
+                        <i class="fas fa-search"></i> Check
+                    </button>
+                    <button class="btn btn-sm btn-success" style="margin-right: 4px;" onclick="selectBucket('${bucket}')">
+                        <i class="fas fa-folder-open"></i> Browse
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomBucket('${bucket}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    customBucketsList.innerHTML = html;
+}
+
+function setupFolderSearch() {
+    const folderSearchInput = document.getElementById('folderSearchInput');
+    const folderSearchResultsCount = document.getElementById('folderSearchResultsCount');
+
+    folderSearchInput.addEventListener('input', function() {
+        folderSearchTerm = this.value;
+        performFolderSearch();
+    });
+}
+
+function setupBucketSearch() {
+    const bucketSearchInput = document.getElementById('bucketSearchInput');
+
+    bucketSearchInput.addEventListener('input', function() {
+        bucketSearchTerm = this.value.toLowerCase();
+        performBucketSearch();
+    });
+}
+
+function performFolderSearch() {
+    const folderSearchResultsCount = document.getElementById('folderSearchResultsCount');
+
+    if (!folderSearchTerm) {
+        // Reset to show all items
+        displayObjects(currentObjects.folders || [], currentObjects.objects || []);
+        folderSearchResultsCount.textContent = '';
+        return;
+    }
+
+    // Filter folders and objects based on search term (case-sensitive)
+    const filteredFolders = (currentObjects.folders || []).filter(folder => {
+        const searchTerm = folderSearchTerm;
+        const folderName = folder.name;
+        const folderPath = folder.path;
+        const fullPath = currentPrefix ? currentPrefix + folder.name + '/' : folder.name + '/';
+
+        return folderName.includes(searchTerm) ||
+               folderPath.includes(searchTerm) ||
+               fullPath.includes(searchTerm) ||
+               searchTerm.includes(folderName) ||
+               searchTerm.includes(folderPath) ||
+               searchTerm.includes(fullPath);
+    });
+
+    const filteredObjects = (currentObjects.objects || []).filter(obj => {
+        // At root level, obj.key is the full path. In subfolders, obj.key is always the full path from bucket root
+        const searchTerm = folderSearchTerm;
+        const objName = obj.name;
+        const objKey = obj.key;
+        const fullPath = objKey;
+
+        return objName.includes(searchTerm) ||
+               objKey.includes(searchTerm) ||
+               fullPath.includes(searchTerm) ||
+               searchTerm.includes(objName) ||
+               searchTerm.includes(objKey) ||
+               searchTerm.includes(fullPath);
+    });
+
+    // Display filtered results
+    displayObjects(filteredFolders, filteredObjects);
+
+    // Update results count
+    let totalResults = filteredFolders.length + filteredObjects.length;
+
+    // If search term looks like a complete object path (contains '/' and has multiple segments), search S3 directly
+    // This handles cases where users want to find specific files by full path
+    const slashCount = (folderSearchTerm.match(/\//g) || []).length;
+    if (slashCount >= 2 && !folderSearchTerm.endsWith('/')) {
+        // Looks like a complete file path, search S3 directly
+        folderSearchResultsCount.textContent = `Searching S3 for "${folderSearchTerm}"...`;
+        searchS3Directly(folderSearchTerm);
+        return; // Exit early, searchS3Directly will update the display
+    }
+
+    // If no local results found and we're in a subfolder, try searching S3 with current prefix + search term
+    if (totalResults === 0 && currentPrefix) {
+        const fullPath = currentPrefix + folderSearchTerm;
+        folderSearchResultsCount.textContent = `No local matches. Searching S3 for "${fullPath}"...`;
+        searchS3Directly(fullPath);
+        return; // Exit early, searchS3Directly will update the display
+    }
+
+    // Otherwise, show local search results
+    if (totalResults === 0) {
+        folderSearchResultsCount.textContent = `No items found matching "${folderSearchTerm}"`;
+    } else {
+        folderSearchResultsCount.textContent = `Found ${totalResults} item${totalResults !== 1 ? 's' : ''} matching "${folderSearchTerm}"`;
+    }
+}
+
+function clearFolderSearch() {
+    document.getElementById('folderSearchInput').value = '';
+    folderSearchTerm = '';
+    performFolderSearch();
+}
+
+function performBucketSearch() {
+    // Re-display both predefined and custom buckets with the search filter
+    displayPredefinedBuckets(predefinedBuckets);
+    displayCustomBuckets(customBuckets);
+    // Also display automatically detected buckets if they exist
+    displayDetectedBuckets();
+}
+
+function clearBucketSearch() {
+    document.getElementById('bucketSearchInput').value = '';
+    bucketSearchTerm = '';
+    performBucketSearch();
+}
+
+function addCustomBucket() {
+    const newBucketInput = document.getElementById('newBucketInput');
+    const bucketName = newBucketInput.value.trim();
+
+    if (!bucketName) {
+        showAlert('warning', 'Please enter a bucket name');
+        return;
+    }
+
+    // Basic bucket name validation
+    if (!/^[a-z0-9][a-z0-9\-]*[a-z0-9]$/.test(bucketName) || bucketName.length < 3 || bucketName.length > 63) {
+        showAlert('warning', 'Invalid bucket name. Bucket names must be 3-63 characters, lowercase letters, numbers, and hyphens only.');
+        return;
+    }
+
+    fetch('/api/add_custom_bucket', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bucket_name: bucketName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            newBucketInput.value = '';
+            loadCustomBuckets(); // Reload custom buckets
+        } else {
+            showAlert('warning', data.message);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', `Error adding bucket: ${error.message}`);
+    });
+}
+
+function deleteCustomBucket(bucketName) {
+    if (!confirm(`Are you sure you want to delete the custom bucket "${bucketName}"?`)) {
+        return;
+    }
+
+    fetch('/api/delete_custom_bucket', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bucket_name: bucketName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            loadCustomBuckets(); // Reload custom buckets
+        } else {
+            showAlert('warning', data.message);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', `Error deleting bucket: ${error.message}`);
+    });
+}
+
+function checkBucketAccess(bucketName) {
+    // Show loading state
+    showAlert('info', `Checking access to bucket "${bucketName}"...`);
+
+    fetch(`/api/check_s3_bucket_access?bucket=${encodeURIComponent(bucketName)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.accessible) {
+                showAlert('success', `✅ ${data.message}`);
+            } else {
+                showAlert('warning', `❌ ${data.message}`);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', `Error checking bucket access: ${error.message}`);
+        });
+}
+
+function showAddPredefinedBucketModal() {
+    document.getElementById('predefinedBucketInput').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('addPredefinedBucketModal'));
+    modal.show();
+}
+
+function addPredefinedBucket() {
+    const bucketInput = document.getElementById('predefinedBucketInput');
+    const bucketName = bucketInput.value.trim();
+
+    if (!bucketName) {
+        showAlert('warning', 'Please enter a bucket name');
+        return;
+    }
+
+    // Basic bucket name validation
+    if (!/^[a-z0-9][a-z0-9\-]*[a-z0-9]$/.test(bucketName) || bucketName.length < 3 || bucketName.length > 63) {
+        showAlert('warning', 'Invalid bucket name. Bucket names must be 3-63 characters, lowercase letters, numbers, and hyphens only.');
+        return;
+    }
+
+    fetch('/api/add_predefined_bucket', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bucket_name: bucketName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            bucketInput.value = '';
+            bootstrap.Modal.getInstance(document.getElementById('addPredefinedBucketModal')).hide();
+            loadPredefinedBuckets(); // Reload predefined buckets
+        } else {
+            showAlert('warning', data.message);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', `Error adding predefined bucket: ${error.message}`);
+    });
+}
+
+function editPredefinedBucket(bucketName) {
+    document.getElementById('editPredefinedBucketInput').value = bucketName;
+    document.getElementById('editPredefinedBucketOriginal').value = bucketName;
+    const modal = new bootstrap.Modal(document.getElementById('editPredefinedBucketModal'));
+    modal.show();
+}
+
+function updatePredefinedBucket() {
+    const newBucketName = document.getElementById('editPredefinedBucketInput').value.trim();
+    const oldBucketName = document.getElementById('editPredefinedBucketOriginal').value;
+
+    if (!newBucketName) {
+        showAlert('warning', 'Please enter a bucket name');
+        return;
+    }
+
+    if (newBucketName === oldBucketName) {
+        bootstrap.Modal.getInstance(document.getElementById('editPredefinedBucketModal')).hide();
+        return;
+    }
+
+    // Basic bucket name validation
+    if (!/^[a-z0-9][a-z0-9\-]*[a-z0-9]$/.test(newBucketName) || newBucketName.length < 3 || newBucketName.length > 63) {
+        showAlert('warning', 'Invalid bucket name. Bucket names must be 3-63 characters, lowercase letters, numbers, and hyphens only.');
+        return;
+    }
+
+    fetch('/api/update_predefined_bucket', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            old_bucket_name: oldBucketName,
+            new_bucket_name: newBucketName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            bootstrap.Modal.getInstance(document.getElementById('editPredefinedBucketModal')).hide();
+            loadPredefinedBuckets(); // Reload predefined buckets
+        } else {
+            showAlert('warning', data.message);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', `Error updating predefined bucket: ${error.message}`);
+    });
+}
+
+function deletePredefinedBucket(bucketName) {
+    if (!confirm(`Are you sure you want to delete the predefined bucket "${bucketName}"?\n\nThis will permanently remove it from the predefined list.`)) {
+        return;
+    }
+
+    fetch('/api/delete_predefined_bucket', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bucket_name: bucketName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            loadPredefinedBuckets(); // Reload predefined buckets
+        } else {
+            showAlert('warning', data.message);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', `Error deleting predefined bucket: ${error.message}`);
+    });
+}
+
+function searchS3Directly(searchPath) {
+    if (!currentBucket) {
+        const folderSearchResultsCount = document.getElementById('folderSearchResultsCount');
+        folderSearchResultsCount.textContent = 'No bucket selected for search';
+        displayObjects([], []);
+        return;
+    }
+
+    const url = `/api/search_s3_object?bucket=${encodeURIComponent(currentBucket)}&key=${encodeURIComponent(searchPath)}`;
+
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const folderSearchResultsCount = document.getElementById('folderSearchResultsCount');
+
+            if (data.success && data.found) {
+                // Found the object directly in S3 - show it as a single result
+                const mockObject = {
+                    name: data.key.split('/').pop(),
+                    key: data.key,
+                    size: data.size,
+                    last_modified: data.last_modified
+                };
+
+                // Display the found object
+                displayObjects([], [mockObject]);
+                folderSearchResultsCount.textContent = `Found 1 item in S3 matching "${searchPath}"`;
+            } else {
+                // Not found in S3 either
+                displayObjects([], []);
+                folderSearchResultsCount.textContent = `No items found matching "${searchPath}"`;
+            }
+        })
+        .catch(error => {
+            const folderSearchResultsCount = document.getElementById('folderSearchResultsCount');
+            folderSearchResultsCount.textContent = `Search failed for "${searchPath}": ${error.message}`;
+            displayObjects([], []);
+        });
+}
+
 function refreshBuckets() {
-    location.reload();
+    loadBuckets();
+    loadCredentialInfo();
 }
 
 function selectBucket(bucketName) {
     currentBucket = bucketName;
     currentPrefix = '';
     continuationToken = null;
-    
+    folderSearchTerm = '';
+
     document.getElementById('currentBucketName').textContent = `Bucket: ${bucketName}`;
     document.getElementById('objectsSection').style.display = 'block';
+    document.getElementById('folderSearchSection').style.display = 'block';
     document.getElementById('goUpBtn').style.display = 'none';
-    
+    document.getElementById('copyPathBtn').style.display = 'inline-block';
+    document.getElementById('copyFullPathBtn').style.display = 'inline-block';
+
+    // Clear and setup folder search
+    document.getElementById('folderSearchInput').value = '';
+    document.getElementById('folderSearchResultsCount').textContent = '';
+    setupFolderSearch();
+
     updateBreadcrumb();
     loadObjects();
 }
 
 function updateBreadcrumb() {
-    const breadcrumb = document.getElementById('rootBreadcrumb');
+    const breadcrumbContainer = document.getElementById('breadcrumb').querySelector('ol');
+    const parts = currentPrefix.split('/').filter(p => p);
+
+    // Clear existing breadcrumb items
+    breadcrumbContainer.innerHTML = '';
+
+    // Add root breadcrumb
+    const rootItem = document.createElement('li');
+    rootItem.className = 'breadcrumb-item';
     if (currentPrefix === '') {
-        breadcrumb.innerHTML = 'Root';
-        breadcrumb.className = 'breadcrumb-item active';
+        rootItem.className += ' active';
+        rootItem.textContent = 'Root';
     } else {
-        const parts = currentPrefix.split('/').filter(p => p);
-        breadcrumb.innerHTML = '<a href="#" onclick="goToRoot()">Root</a>';
-        
+        const rootLink = document.createElement('a');
+        rootLink.href = '#';
+        rootLink.textContent = 'Root';
+        rootLink.onclick = () => goToRoot();
+        rootItem.appendChild(rootLink);
+    }
+    breadcrumbContainer.appendChild(rootItem);
+
+    // Add folder path breadcrumbs
+    if (currentPrefix !== '') {
         let currentPath = '';
         parts.forEach((part, index) => {
             currentPath += part + '/';
             const isLast = index === parts.length - 1;
             const item = document.createElement('li');
             item.className = `breadcrumb-item ${isLast ? 'active' : ''}`;
-            
+
             if (isLast) {
                 item.textContent = part;
             } else {
                 const link = document.createElement('a');
                 link.href = '#';
                 link.textContent = part;
-                link.onclick = () => goToPath(currentPath);
+                link.setAttribute('data-path', currentPath);
+                link.onclick = function(e) {
+                    e.preventDefault();
+                    goToPath(this.getAttribute('data-path'));
+                };
                 item.appendChild(link);
             }
-            
-            breadcrumb.parentNode.appendChild(item);
+
+            breadcrumbContainer.appendChild(item);
         });
     }
 }
@@ -244,6 +1131,10 @@ function updateBreadcrumb() {
 function goToRoot() {
     currentPrefix = '';
     continuationToken = null;
+    folderSearchTerm = '';
+    document.getElementById('folderSearchInput').value = '';
+    document.getElementById('folderSearchResultsCount').textContent = '';
+    document.getElementById('goUpBtn').style.display = 'none';
     updateBreadcrumb();
     loadObjects();
 }
@@ -251,13 +1142,16 @@ function goToRoot() {
 function goToPath(path) {
     currentPrefix = path;
     continuationToken = null;
+    folderSearchTerm = '';
+    document.getElementById('folderSearchInput').value = '';
+    document.getElementById('folderSearchResultsCount').textContent = '';
     updateBreadcrumb();
     loadObjects();
 }
 
 function goUp() {
     if (currentPrefix === '') return;
-    
+
     const parts = currentPrefix.split('/').filter(p => p);
     if (parts.length > 0) {
         parts.pop();
@@ -265,33 +1159,53 @@ function goUp() {
     } else {
         currentPrefix = '';
     }
-    
+
     continuationToken = null;
+    folderSearchTerm = '';
+    document.getElementById('folderSearchInput').value = '';
+    document.getElementById('folderSearchResultsCount').textContent = '';
+
+    // Hide "Up" button if we're back at root
+    if (currentPrefix === '') {
+        document.getElementById('goUpBtn').style.display = 'none';
+    }
     updateBreadcrumb();
     loadObjects();
 }
 
 function loadObjects() {
     const objectsList = document.getElementById('objectsList');
-    objectsList.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-    
+    objectsList.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading objects...</p></div>';
+
     const params = new URLSearchParams({
         bucket: currentBucket,
         prefix: currentPrefix,
-        max_keys: 20
+        max_keys: 50  // Increased limit to ensure folders are captured
     });
-    
+
     if (continuationToken) {
         params.append('continuation_token', continuationToken);
     }
-    
+
     fetch(`/api/list_s3_objects?${params}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                displayObjects(data.objects);
+                // Store current objects data for folder search functionality
+                currentObjects = {
+                    folders: data.folders || [],
+                    objects: data.objects || []
+                };
+
+                // Apply folder search if active
+                if (folderSearchTerm) {
+                    performFolderSearch();
+                } else {
+                    displayObjects(data.folders || [], data.objects || []);
+                }
+
                 continuationToken = data.next_continuation_token;
-                document.getElementById('loadMoreSection').style.display = 
+                document.getElementById('loadMoreSection').style.display =
                     data.is_truncated ? 'block' : 'none';
             } else {
                 objectsList.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
@@ -302,58 +1216,144 @@ function loadObjects() {
         });
 }
 
-function displayObjects(objects) {
+function displayObjects(folders, objects) {
     const objectsList = document.getElementById('objectsList');
-    
-    if (objects.length === 0) {
-        objectsList.innerHTML = '<div class="text-center text-muted"><p>No objects found</p></div>';
+
+    const totalItems = (folders || []).length + (objects || []).length;
+    if (totalItems === 0) {
+        if (folderSearchTerm) {
+            objectsList.innerHTML = `<div class="text-center text-muted"><p>No items found matching "${folderSearchTerm}"</p></div>`;
+        } else {
+            objectsList.innerHTML = '<div class="text-center text-muted"><p>No objects found</p></div>';
+        }
         return;
     }
-    
+
+    // Combine folders and objects for filtering and limiting
+    let allItems = [];
+
+    // Add folders
+    (folders || []).forEach(folder => {
+        allItems.push({
+            ...folder,
+            is_folder: true,
+            display_name: folder.name,
+            key: folder.path
+        });
+    });
+
+    // Add objects
+    (objects || []).forEach(obj => {
+        allItems.push({
+            ...obj,
+            is_folder: false,
+            display_name: obj.name,
+            key: obj.key
+        });
+    });
+
+    if (allItems.length === 0) {
+        if (folderSearchTerm) {
+            objectsList.innerHTML = `<div class="text-center text-muted"><p>No items found matching "${folderSearchTerm}"</p></div>`;
+        } else {
+            objectsList.innerHTML = '<div class="text-center text-muted"><p>No objects found</p></div>';
+        }
+        return;
+    }
+
+    // Limit to 20 items for better UX (folders + files)
+    const displayItems = allItems.slice(0, 20);
+    const hasMore = allItems.length > 20;
+
     let html = '<div class="table-responsive"><table class="table table-hover">';
     html += '<thead><tr><th>Name</th><th>Size</th><th>Last Modified</th><th>Actions</th></tr></thead><tbody>';
-    
-    objects.forEach(obj => {
-        const isFolder = obj.is_folder || obj.key.endsWith('/');
-        const size = isFolder ? '-' : formatBytes(obj.size);
-        const lastModified = obj.last_modified ? new Date(obj.last_modified).toLocaleString() : '-';
-        
+
+    displayItems.forEach(item => {
+        const isFolder = item.is_folder;
+        const size = isFolder ? '-' : formatBytes(item.size || 0);
+        const lastModified = item.last_modified ? new Date(item.last_modified).toLocaleString() : '-';
+
         html += `<tr>`;
         html += `<td>`;
         if (isFolder) {
             html += `<i class="fas fa-folder text-warning"></i> `;
-            html += `<a href="#" onclick="enterFolder('${obj.key}')">${obj.key}</a>`;
+            html += `<a href="#" onclick="enterFolder('${item.key}')">${item.display_name}</a>`;
         } else {
-            html += `<i class="fas fa-file text-primary"></i> ${obj.key}`;
+            html += `<i class="fas fa-file text-primary"></i> ${item.display_name}`;
         }
         html += `</td>`;
         html += `<td>${size}</td>`;
         html += `<td>${lastModified}</td>`;
         html += `<td>`;
-        if (!isFolder) {
-            html += `<button class="btn btn-sm btn-outline-primary" onclick="downloadObject('${obj.key}')">`;
-            html += `<i class="fas fa-download"></i> Download</button>`;
+        if (isFolder) {
+            html += `<button class="btn btn-sm btn-outline-secondary me-1" onclick="copyPath('${item.key}', false)" title="Copy folder path">`;
+            html += `<i class="fas fa-copy"></i></button>`;
+            html += `<button class="btn btn-sm btn-outline-info" onclick="copyPath('${item.key}', true)" title="Copy full path with bucket">`;
+            html += `<i class="fas fa-copy"></i> <i class="fas fa-bucket"></i></button>`;
+        } else {
+            html += `<button class="btn btn-sm btn-outline-primary me-1" onclick="downloadFile('${item.key}')">`;
+            html += `<i class="fas fa-download"></i></button>`;
+            html += `<button class="btn btn-sm btn-outline-secondary" onclick="copyPath('${item.key}', false)" title="Copy file path">`;
+            html += `<i class="fas fa-copy"></i></button>`;
         }
         html += `</td>`;
         html += `</tr>`;
     });
-    
+
     html += '</tbody></table></div>';
+
+    if (hasMore) {
+        html += `<div class="text-center mt-3"><small class="text-muted">Showing ${displayItems.length} of ${allItems.length} items</small></div>`;
+    }
+
     objectsList.innerHTML = html;
 }
 
 function enterFolder(folderKey) {
     currentPrefix = folderKey;
     continuationToken = null;
+    folderSearchTerm = '';
+    document.getElementById('folderSearchInput').value = '';
+    document.getElementById('folderSearchResultsCount').textContent = '';
+    document.getElementById('goUpBtn').style.display = 'inline-block';
     updateBreadcrumb();
     loadObjects();
+}
+
+function downloadFile(objectKey) {
+    if (!currentBucket || !objectKey) {
+        showAlert('danger', 'No object selected for download');
+        return;
+    }
+
+    // Get presigned URL and download directly
+    fetch(`/api/get_s3_download_url?bucket=${encodeURIComponent(currentBucket)}&key=${encodeURIComponent(objectKey)}&expiration=3600`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Create a temporary link and trigger download
+                const link = document.createElement('a');
+                link.href = data.presigned_url;
+                link.download = objectKey.split('/').pop(); // Get filename from key
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showAlert('success', `Download started for ${objectKey.split('/').pop()}`);
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', `Error getting download URL: ${error.message}`);
+        });
 }
 
 function downloadObject(objectKey) {
     document.getElementById('downloadFileName').textContent = objectKey;
     document.getElementById('downloadBucketName').textContent = currentBucket;
     document.getElementById('downloadPath').value = '';
-    
+
     const modal = new bootstrap.Modal(document.getElementById('downloadModal'));
     modal.show();
 }
@@ -384,6 +1384,249 @@ function loadMoreObjects() {
 function refreshObjects() {
     continuationToken = null;
     loadObjects();
+}
+
+function searchByPath() {
+    const bucket = document.getElementById('bucketInput').value.trim();
+    const objectKey = document.getElementById('objectKeyInput').value.trim();
+
+    if (!bucket || !objectKey) {
+        showAlert('warning', 'Please enter both bucket name and object key');
+        return;
+    }
+
+    const searchResult = document.getElementById('searchResult');
+    const searchResultAlert = document.getElementById('searchResultAlert');
+    const objectDetails = document.getElementById('objectDetails');
+
+    // Show loading
+    searchResult.style.display = 'block';
+    searchResultAlert.className = 'alert alert-info';
+    searchResultAlert.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+    objectDetails.style.display = 'none';
+
+    fetch(`/api/search_s3_object?bucket=${encodeURIComponent(bucket)}&key=${encodeURIComponent(objectKey)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.found) {
+                    searchResultAlert.className = 'alert alert-success';
+                    searchResultAlert.innerHTML = '<i class="fas fa-check-circle"></i> Object found!';
+
+                    // Show object details
+                    document.getElementById('objectBucket').textContent = data.bucket;
+                    document.getElementById('objectKey').textContent = data.key;
+                    document.getElementById('objectSize').textContent = formatBytes(data.size);
+                    document.getElementById('objectLastModified').textContent = data.last_modified ?
+                        new Date(data.last_modified).toLocaleString() : 'Unknown';
+                    document.getElementById('objectContentType').textContent = data.content_type || 'Unknown';
+
+                    objectDetails.style.display = 'block';
+                } else {
+                    searchResultAlert.className = 'alert alert-warning';
+                    searchResultAlert.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+                    objectDetails.style.display = 'none';
+                }
+            } else {
+                searchResultAlert.className = 'alert alert-danger';
+                searchResultAlert.innerHTML = `<i class="fas fa-times-circle"></i> ${data.message}`;
+                objectDetails.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            searchResultAlert.className = 'alert alert-danger';
+            searchResultAlert.innerHTML = `<i class="fas fa-times-circle"></i> Error: ${error.message}`;
+            objectDetails.style.display = 'none';
+        });
+}
+
+function downloadByUrl() {
+    const bucket = document.getElementById('objectBucket').textContent;
+    const objectKey = document.getElementById('objectKey').textContent;
+
+    if (!bucket || !objectKey) {
+        showAlert('danger', 'No object selected for download');
+        return;
+    }
+
+    // Get presigned URL
+    fetch(`/api/get_s3_download_url?bucket=${encodeURIComponent(bucket)}&key=${encodeURIComponent(objectKey)}&expiration=3600`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Create a temporary link and trigger download
+                const link = document.createElement('a');
+                link.href = data.presigned_url;
+                link.download = objectKey.split('/').pop(); // Get filename from key
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showAlert('success', `Download started for ${objectKey}`);
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', `Error getting download URL: ${error.message}`);
+        });
+}
+
+function removeAssumedRole() {
+    if (!confirm('Are you sure you want to remove the assumed role? This will revert to your base credentials.')) {
+        return;
+    }
+
+    fetch('/api/remove_assume_role', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', 'Assumed role removed successfully. Page will refresh.');
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', `Error removing assumed role: ${error.message}`);
+    });
+}
+
+function checkManualBucket() {
+    const bucketInput = document.getElementById('manualBucketInput');
+    const bucketName = bucketInput.value.trim();
+    const resultDiv = document.getElementById('bucketCheckResult');
+
+    if (!bucketName) {
+        showAlert('warning', 'Please enter a bucket name');
+        return;
+    }
+
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Checking...</span></div> Checking bucket access...';
+
+    fetch(`/api/check_s3_bucket_access?bucket=${encodeURIComponent(bucketName)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.accessible) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> ${data.message}
+                            <br><button class="btn btn-sm btn-success mt-2" onclick="selectBucket('${bucketName}')">
+                                <i class="fas fa-folder-open"></i> Browse Bucket
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times-circle"></i> ${data.message}
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Error: ${data.message}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Error checking bucket: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function copyPath(itemKey, includeBucket = false) {
+    let pathToCopy;
+
+    if (includeBucket) {
+        pathToCopy = `s3://${currentBucket}/${itemKey}`;
+    } else {
+        // Remove trailing slash for cleaner path
+        pathToCopy = itemKey.replace(/\/$/, '');
+    }
+
+    // Use the Clipboard API if available, fallback to older method
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(pathToCopy).then(() => {
+            showAlert('success', `Copied to clipboard: ${pathToCopy}`);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            fallbackCopyTextToClipboard(pathToCopy);
+        });
+    } else {
+        fallbackCopyTextToClipboard(pathToCopy);
+    }
+}
+
+function copyCurrentPath(includeBucket = false) {
+    let pathToCopy;
+
+    if (includeBucket) {
+        if (currentPrefix) {
+            pathToCopy = `s3://${currentBucket}/${currentPrefix}`;
+        } else {
+            pathToCopy = `s3://${currentBucket}`;
+        }
+    } else {
+        // Remove trailing slash for cleaner path
+        pathToCopy = currentPrefix ? currentPrefix.replace(/\/$/, '') : '';
+    }
+
+    // Use the Clipboard API if available, fallback to older method
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(pathToCopy).then(() => {
+            showAlert('success', `Copied to clipboard: ${pathToCopy}`);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            fallbackCopyTextToClipboard(pathToCopy);
+        });
+    } else {
+        fallbackCopyTextToClipboard(pathToCopy);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+
+    // Avoid scrolling to bottom
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showAlert('success', `Copied to clipboard: ${text}`);
+        } else {
+            showAlert('warning', 'Copy failed, please copy manually');
+        }
+    } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        showAlert('warning', 'Copy failed, please copy manually');
+    }
+
+    document.body.removeChild(textArea);
 }
 
 function formatBytes(bytes) {

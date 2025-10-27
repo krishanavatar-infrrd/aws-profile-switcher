@@ -68,6 +68,10 @@ class ConfigManager:
         """Get base credentials path"""
         return self.config.get('base_credentials_path', '')
 
+    def get_predefined_buckets(self) -> list:
+        """Get predefined buckets configuration"""
+        return self.config.get('predefined_buckets', [])
+
 
 def get_region_display_name(region_code: str) -> str:
     """Get human-readable region name"""
