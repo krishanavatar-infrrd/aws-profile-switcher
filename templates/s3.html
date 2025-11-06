@@ -115,9 +115,9 @@
                 </div>
             </div>
             <div class="card-body">
-                <!-- Bucket Search and Add -->
+                <!-- Bucket Search -->
                 <div class="row mb-3">
-                    <div class="col-md-8">
+                    <div class="col-md-12">
                         <div class="input-group">
                             <input type="text" class="form-control" id="bucketSearchInput" placeholder="Search buckets...">
                             <button class="btn btn-outline-secondary" onclick="clearBucketSearch()">
@@ -125,59 +125,36 @@
                             </button>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="newBucketInput" placeholder="Add custom bucket">
-                            <button class="btn btn-success" onclick="addCustomBucket()">
-                                <i class="fas fa-plus"></i> Add
-                            </button>
+                </div>
+
+                <!-- Bucket Lists -->
+                <!-- Predefined Buckets Section -->
+                <div class="mb-4">
+                    <h6 class="text-primary">
+                        <i class="fas fa-star"></i> Predefined Buckets
+                        <small class="text-muted" id="predefinedCount"></small>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="showAddPredefinedBucketModal()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </h6>
+                    <div id="predefinedBucketsList" class="row g-3">
+                        <div class="col-12 text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Bucket Lists -->
-                <div class="row">
-                    <!-- Predefined Buckets -->
-                    <div class="col-md-4">
-                        <h6 class="text-primary">
-                            <i class="fas fa-star"></i> Predefined Buckets
-                            <small class="text-muted" id="predefinedCount"></small>
-                            <button class="btn btn-sm btn-outline-primary ms-2" onclick="showAddPredefinedBucketModal()">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </h6>
-                        <div id="predefinedBucketsList" class="mb-3">
-                            <div class="text-center">
-                                <div class="spinner-border spinner-border-sm" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Custom Buckets -->
-                    <div class="col-md-4">
-                        <h6 class="text-success">
-                            <i class="fas fa-user"></i> Custom Buckets
-                            <small class="text-muted" id="customCount"></small>
-                        </h6>
-                        <div id="customBucketsList" class="mb-3">
-                            <div class="text-center text-muted">
-                                <small>No custom buckets added yet</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Detected Buckets -->
-                    <div class="col-md-4">
-                        <h6 class="text-info">
-                            <i class="fas fa-search"></i> Detected Buckets
-                            <small class="text-muted" id="detectedCount"></small>
-                        </h6>
-                        <div id="detectedBucketsList" class="mb-3">
-                            <div class="text-center text-muted">
-                                <small>Checking permissions...</small>
-                            </div>
+                <!-- Detected Buckets Section -->
+                <div class="mb-4">
+                    <h6 class="text-info">
+                        <i class="fas fa-search"></i> Detected Buckets
+                        <small class="text-muted" id="detectedCount"></small>
+                    </h6>
+                    <div id="detectedBucketsList" class="row g-3">
+                        <div class="col-12 text-center text-muted">
+                            <small>Checking permissions...</small>
                         </div>
                     </div>
                 </div>
@@ -359,7 +336,6 @@ let currentObjects = { folders: [], objects: [] };
 let allBuckets = [];
 let folderSearchTerm = '';
 let predefinedBuckets = [];
-let customBuckets = [];
 let bucketSearchTerm = '';
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -462,9 +438,6 @@ function loadBuckets() {
     // Load predefined buckets
     loadPredefinedBuckets();
 
-    // Load custom buckets
-    loadCustomBuckets();
-
     // Try to list all buckets (may fail due to permissions)
     checkBucketListingPermission();
 }
@@ -479,7 +452,7 @@ function displayDetectedBuckets() {
     detectedCount.textContent = `(${allBuckets.length})`;
 
     if (allBuckets.length === 0) {
-        detectedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No buckets automatically detected</small></div>';
+        detectedBucketsList.innerHTML = '<div class="col-12 text-center text-muted"><small>No buckets automatically detected</small></div>';
         return;
     }
 
@@ -492,23 +465,29 @@ function displayDetectedBuckets() {
     }
 
     if (displayBuckets.length === 0) {
-        detectedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No matching detected buckets</small></div>';
+        detectedBucketsList.innerHTML = '<div class="col-12 text-center text-muted"><small>No matching detected buckets</small></div>';
         return;
     }
 
     let html = '';
     displayBuckets.forEach(bucket => {
+        const createdDate = new Date(bucket.creation_date).toLocaleDateString();
         html += `
-            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                <div>
-                    <code class="small">${bucket.name}</code>
-                    <br>
-                    <small class="text-muted">Created: ${new Date(bucket.creation_date).toLocaleDateString()}</small>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-outline-primary" onclick="selectBucket('${bucket.name}')">
-                        <i class="fas fa-folder-open"></i> Browse
-                    </button>
+            <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-truncate" title="${bucket.name}">
+                            <i class="fas fa-search text-info"></i> ${bucket.name}
+                        </h6>
+                        <p class="card-text small text-muted mb-2">
+                            <i class="fas fa-calendar"></i> Created: ${createdDate}
+                        </p>
+                        <div class="d-grid">
+                            <button class="btn btn-sm btn-info" onclick="selectBucket('${bucket.name}')">
+                                <i class="fas fa-folder-open"></i> Browse
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -532,24 +511,6 @@ function loadPredefinedBuckets() {
         })
         .catch(error => {
             predefinedBucketsList.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
-        });
-}
-
-function loadCustomBuckets() {
-    const customBucketsList = document.getElementById('customBucketsList');
-
-    fetch('/api/list_custom_buckets')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                customBuckets = data.buckets || [];
-                displayCustomBuckets(customBuckets);
-            } else {
-                customBucketsList.innerHTML = `<div class="alert alert-danger">Error loading custom buckets</div>`;
-            }
-        })
-        .catch(error => {
-            customBucketsList.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
         });
 }
 
@@ -597,7 +558,7 @@ function displayPredefinedBuckets(buckets) {
     predefinedCount.textContent = `(${buckets.length})`;
 
     if (buckets.length === 0) {
-        predefinedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No predefined buckets configured</small></div>';
+        predefinedBucketsList.innerHTML = '<div class="col-12 text-center text-muted"><small>No predefined buckets configured</small></div>';
         return;
     }
 
@@ -610,86 +571,42 @@ function displayPredefinedBuckets(buckets) {
     }
 
     if (displayBuckets.length === 0) {
-        predefinedBucketsList.innerHTML = '<div class="text-center text-muted"><small>No matching predefined buckets</small></div>';
+        predefinedBucketsList.innerHTML = '<div class="col-12 text-center text-muted"><small>No matching predefined buckets</small></div>';
         return;
     }
 
     let html = '';
     displayBuckets.forEach(bucket => {
         html += `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
-                <div style="flex-grow: 1;">
-                    <code style="color: #0d6efd;">${bucket}</code>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-outline-primary" style="margin-right: 2px;" onclick="checkBucketAccess('${bucket}')">
-                        <i class="fas fa-search"></i> Check
-                    </button>
-                    <button class="btn btn-sm btn-success" style="margin-right: 2px;" onclick="selectBucket('${bucket}')">
-                        <i class="fas fa-folder-open"></i> Browse
-                    </button>
-                    <button class="btn btn-sm btn-outline-warning" style="margin-right: 2px;" onclick="editPredefinedBucket('${bucket}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deletePredefinedBucket('${bucket}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
+            <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-truncate" title="${bucket}">
+                            <i class="fas fa-star text-primary"></i> ${bucket}
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-sm btn-primary" onclick="selectBucket('${bucket}')">
+                                <i class="fas fa-folder-open"></i> Browse
+                            </button>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="checkBucketAccess('${bucket}')">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="editPredefinedBucket('${bucket}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="deletePredefinedBucket('${bucket}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
     });
 
     predefinedBucketsList.innerHTML = html;
-}
-
-function displayCustomBuckets(buckets) {
-    const customBucketsList = document.getElementById('customBucketsList');
-    const customCount = document.getElementById('customCount');
-
-    // Update count
-    customCount.textContent = `(${buckets.length})`;
-
-    if (buckets.length === 0) {
-        customBucketsList.innerHTML = '<div class="text-center text-muted"><small>No custom buckets added yet</small></div>';
-        return;
-    }
-
-    // Filter by search term
-    let displayBuckets = buckets;
-    if (bucketSearchTerm) {
-        displayBuckets = buckets.filter(bucket =>
-            bucket.toLowerCase().includes(bucketSearchTerm.toLowerCase())
-        );
-    }
-
-    if (displayBuckets.length === 0) {
-        customBucketsList.innerHTML = '<div class="text-center text-muted"><small>No matching custom buckets</small></div>';
-        return;
-    }
-
-    let html = '';
-    displayBuckets.forEach(bucket => {
-        html += `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
-                <div style="flex-grow: 1;">
-                    <code style="color: #198754;">${bucket}</code>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-outline-primary" style="margin-right: 4px;" onclick="checkBucketAccess('${bucket}')">
-                        <i class="fas fa-search"></i> Check
-                    </button>
-                    <button class="btn btn-sm btn-success" style="margin-right: 4px;" onclick="selectBucket('${bucket}')">
-                        <i class="fas fa-folder-open"></i> Browse
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomBucket('${bucket}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-
-    customBucketsList.innerHTML = html;
 }
 
 function setupFolderSearch() {
@@ -790,9 +707,8 @@ function clearFolderSearch() {
 }
 
 function performBucketSearch() {
-    // Re-display both predefined and custom buckets with the search filter
+    // Re-display predefined buckets with the search filter
     displayPredefinedBuckets(predefinedBuckets);
-    displayCustomBuckets(customBuckets);
     // Also display automatically detected buckets if they exist
     displayDetectedBuckets();
 }
@@ -801,69 +717,6 @@ function clearBucketSearch() {
     document.getElementById('bucketSearchInput').value = '';
     bucketSearchTerm = '';
     performBucketSearch();
-}
-
-function addCustomBucket() {
-    const newBucketInput = document.getElementById('newBucketInput');
-    const bucketName = newBucketInput.value.trim();
-
-    if (!bucketName) {
-        showAlert('warning', 'Please enter a bucket name');
-        return;
-    }
-
-    // Basic bucket name validation
-    if (!/^[a-z0-9][a-z0-9\-]*[a-z0-9]$/.test(bucketName) || bucketName.length < 3 || bucketName.length > 63) {
-        showAlert('warning', 'Invalid bucket name. Bucket names must be 3-63 characters, lowercase letters, numbers, and hyphens only.');
-        return;
-    }
-
-    fetch('/api/add_custom_bucket', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bucket_name: bucketName })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', data.message);
-            newBucketInput.value = '';
-            loadCustomBuckets(); // Reload custom buckets
-        } else {
-            showAlert('warning', data.message);
-        }
-    })
-    .catch(error => {
-        showAlert('danger', `Error adding bucket: ${error.message}`);
-    });
-}
-
-function deleteCustomBucket(bucketName) {
-    if (!confirm(`Are you sure you want to delete the custom bucket "${bucketName}"?`)) {
-        return;
-    }
-
-    fetch('/api/delete_custom_bucket', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bucket_name: bucketName })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', data.message);
-            loadCustomBuckets(); // Reload custom buckets
-        } else {
-            showAlert('warning', data.message);
-        }
-    })
-    .catch(error => {
-        showAlert('danger', `Error deleting bucket: ${error.message}`);
-    });
 }
 
 function checkBucketAccess(bucketName) {
