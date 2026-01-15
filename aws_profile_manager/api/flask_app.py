@@ -819,7 +819,7 @@ echo "⏰ Credentials will expire in 1 hour"
     def api_download_credentials():
         """API endpoint to redirect to JumpCloud for credential download"""
         from flask import redirect
-        return redirect('https://console.jumpcloud.com/login#/')
+        return redirect('https://sso.jumpcloud.com/saml2/aws')
 
     @app.route('/api/list_s3_buckets', methods=['GET'])
     def api_list_s3_buckets():

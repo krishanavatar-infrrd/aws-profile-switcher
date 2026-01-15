@@ -86,7 +86,7 @@ SWBC/boto/
 ## Configuration
 
 The application uses the same configuration as the original CLI script:
-- Base credentials file: `/home/krishnavatar/Downloads/credentials`
+- Base credentials file: `/Users/krishnavatar/Downloads/credentials`
 - AWS credentials file: `~/.aws/credentials`
 - AWS config file: `~/.aws/config`
 
