@@ -147,6 +147,14 @@ def create_app():
         except Exception as e:
             logger.error(f'Error in s3: {e}')
             return render_template('s3.html')
+
+    @app.route('/efs')
+    def efs():
+        try:
+            return render_template('efs.html')
+        except Exception as e:
+            logger.error(f'Error in efs: {e}')
+            return render_template('efs.html')
     
     @app.route('/assume-role-page')
     def assume_role_page():
@@ -545,6 +553,175 @@ def create_app():
             logger.error(f"Error removing environment: {e}")
             return jsonify({'success': False, 'message': str(e)})
 
+    def _update_shell_profile(enabled=True):
+        """Helper to update .zshrc with Bedrock source command"""
+        zshrc_path = Path.home() / '.zshrc'
+        if not zshrc_path.exists():
+            logger.warning(f"Shell profile {zshrc_path} not found")
+            return False
+            
+        managed_block_start = "# >>> Managed by AWS Profile Manager >>>"
+        managed_block_end = "# <<< Managed by AWS Profile Manager <<<"
+        bedrock_script = "/Users/krishnavatar/bedrock.sh"
+        source_line = f"source {bedrock_script}"
+        
+        try:
+            content = zshrc_path.read_text()
+            
+            if enabled:
+                if managed_block_start in content:
+                    logger.info("Bedrock source already in .zshrc")
+                    return True
+                else:
+                    # Add at the end
+                    new_block = f"\n{managed_block_start}\n# Bedrock Toggle: Enabled\n{source_line}\n{managed_block_end}\n"
+                    zshrc_path.write_text(content + new_block)
+                    logger.info("Added Bedrock source to .zshrc")
+            else:
+                if managed_block_start in content:
+                    # Remove the block
+                    import re
+                    pattern = r"\n?" + re.escape(managed_block_start) + r".*?" + re.escape(managed_block_end) + r"\n?"
+                    new_content = re.sub(pattern, "\n", content, flags=re.DOTALL)
+                    zshrc_path.write_text(new_content.strip() + "\n")
+                    logger.info("Removed Bedrock source from .zshrc")
+                else:
+                    logger.info("Bedrock source not found in .zshrc, nothing to remove")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error updating shell profile: {e}")
+            return False
+
+    @app.route('/api/bedrock_status', methods=['GET'])
+    def api_bedrock_status():
+        """API endpoint to check Bedrock toggle status"""
+        try:
+            zshrc_path = Path.home() / '.zshrc'
+            enabled = False
+            if zshrc_path.exists():
+                content = zshrc_path.read_text()
+                enabled = "# >>> Managed by AWS Profile Manager >>>" in content
+            
+            # Also check if current env is dev
+            status = aws_manager.get_status()
+            current_env = status.get('current_environment', '').lower()
+            
+            return jsonify({
+                'success': True,
+                'enabled': enabled,
+                'current_env': current_env
+            })
+        except Exception as e:
+            logger.error(f"Error getting Bedrock status: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/efs/download_local', methods=['POST'])
+    def api_efs_download_local():
+        """API endpoint to download EFS folder/file directly to local Downloads folder"""
+        try:
+            data = request.get_json() or {}
+            remote_path = data.get('remote_path')
+            conn_id = int(data.get('connection_id', 0))
+            is_folder = data.get('is_folder') == 'true'
+            
+            if not remote_path:
+                return jsonify({'success': False, 'message': 'Remote path is required'})
+            
+            # Use ~/Downloads as default browser path
+            downloads_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+            base_name = os.path.basename(remote_path)
+            local_dest = os.path.join(downloads_dir, base_name)
+            
+            # Handle duplicates by adding suffix if needed
+            counter = 1
+            original_local_dest = local_dest
+            while os.path.exists(local_dest):
+                local_dest = f"{original_local_dest}_{counter}"
+                counter += 1
+            
+            if is_folder:
+                result = aws_manager.download_efs_recursive(remote_path, conn_id, local_dest)
+            else:
+                result = aws_manager.download_efs_file(remote_path, local_dest, conn_id)
+                
+            if result.get('success'):
+                # Open in Finder
+                import subprocess
+                subprocess.run(['open', local_dest])
+                return jsonify({'success': True, 'message': f'Downloaded to {local_dest} and opened in Finder'})
+            else:
+                return jsonify(result)
+        except Exception as e:
+            logger.error(f"Error in local download: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/toggle_bedrock', methods=['POST'])
+    def api_toggle_bedrock():
+        """API endpoint to toggle Bedrock configuration"""
+        try:
+            data = request.get_json()
+            enabled = data.get('enabled', False)
+            
+            if enabled:
+                # 1. Switch environment to 'dev' forcefully first
+                status = aws_manager.get_status()
+                current_env = status.get('current_environment', 'default')
+                
+                # Switch to dev
+                result = aws_manager.switch_environment('dev')
+                if not result:
+                    return jsonify({
+                        'success': False, 
+                        'message': 'Failed to switch to DEV environment. Bedrock toggle cancelled.',
+                        'enabled': False
+                    })
+                
+                # Store previous environment in session for reverting
+                if current_env.lower() != 'dev':
+                    session['prev_env'] = current_env
+                
+                # 2. Update shell profile for "permanent session"
+                profile_updated = _update_shell_profile(True)
+                if not profile_updated:
+                    return jsonify({
+                        'success': False, 
+                        'message': 'Switched to DEV, but failed to update .zshrc. Bedrock toggle not fully active.',
+                        'enabled': False
+                    })
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Bedrock enabled! Switched to DEV environment and updated .zshrc.',
+                    'enabled': True
+                })
+            else:
+                # Disable Bedrock
+                # 1. Update shell profile
+                profile_updated = _update_shell_profile(False)
+                
+                # 2. Revert environment
+                revert_to = session.get('prev_env', 'default')
+                env_reverted = aws_manager.switch_environment(revert_to)
+                
+                message = "Bedrock disabled and .zshrc updated."
+                if env_reverted:
+                    message += f" Reverted to {revert_to} environment."
+                else:
+                    message += " Failed to revert environment."
+                
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'enabled': False
+                })
+        except Exception as e:
+            logger.error(f"Error toggling Bedrock: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+        except Exception as e:
+            logger.error(f"Error toggling Bedrock: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
 
     @app.route('/api/assume_role', methods=['POST'])
     def api_assume_role():
@@ -867,6 +1044,66 @@ echo "⏰ Credentials will expire in 1 hour"
             logger.error(f"Error downloading S3 object: {e}")
             return jsonify({'success': False, 'message': str(e)})
 
+    @app.route('/api/upload_s3_object', methods=['POST'])
+    def api_upload_s3_object():
+        """API endpoint to upload S3 object"""
+        try:
+            # Handle file upload from form data
+            if 'file' in request.files:
+                file = request.files['file']
+                bucket_name = request.form.get('bucket')
+                prefix = request.form.get('prefix', '')
+                
+                if not file or not bucket_name:
+                    return jsonify({'success': False, 'message': 'File and bucket name are required'})
+                
+                if file.filename == '':
+                    return jsonify({'success': False, 'message': 'No selected file'})
+                
+                # Save to temporary file
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False) as temp:
+                    file.save(temp.name)
+                    temp_path = temp.name
+                
+                try:
+                    object_key = f"{prefix}{file.filename}" if prefix else file.filename
+                    # Remove leading slash if present in prefix to avoid double slashes or absolute path issues
+                    if object_key.startswith('/'):
+                        object_key = object_key[1:]
+                        
+                    result = aws_manager.upload_s3_file(temp_path, bucket_name, object_key)
+                    return jsonify(result)
+                finally:
+                    # Clean up temp file
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+            
+            # Handle local path upload (if needed in future, but above is for web upload)
+            else:
+                return jsonify({'success': False, 'message': 'No file part in the request'})
+                
+        except Exception as e:
+            logger.error(f"Error uploading S3 object: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/delete_s3_object', methods=['POST'])
+    def api_delete_s3_object():
+        """API endpoint to delete S3 object"""
+        try:
+            data = request.get_json()
+            bucket_name = data.get('bucket')
+            object_key = data.get('object_key')
+
+            if not bucket_name or not object_key:
+                return jsonify({'success': False, 'message': 'Bucket name and object key are required'})
+
+            result = aws_manager.delete_s3_object(bucket_name, object_key)
+            return jsonify(result)
+        except Exception as e:
+            logger.error(f"Error deleting S3 object: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
     @app.route('/api/search_s3_object', methods=['GET'])
     def api_search_s3_object():
         """API endpoint to search for S3 object by complete path"""
@@ -1074,6 +1311,188 @@ echo "⏰ Credentials will expire in 1 hour"
         except Exception as e:
             logger.error(f"Error checking bucket access: {e}")
             return jsonify({'success': False, 'message': str(e)})
+
+    # EFS API Endpoints
+    @app.route('/api/efs/config', methods=['GET', 'POST', 'PUT', 'DELETE'])
+    def api_efs_config():
+        """API endpoint to manage EFS connections"""
+        try:
+            if request.method == 'GET':
+                connections = aws_manager.get_efs_connections()
+                return jsonify({'success': True, 'connections': connections})
+            elif request.method == 'POST':
+                data = request.get_json()
+                host = data.get('host')
+                username = data.get('username')
+                key_path = data.get('key_path', '')
+                name = data.get('name', '')
+                
+                if not all([host, username]):
+                    return jsonify({'success': False, 'message': 'Host and username are required'})
+                    
+                result = aws_manager.add_efs_connection(host, username, key_path, name)
+                return jsonify({'success': result, 'message': 'EFS connection saved'})
+            elif request.method == 'PUT':
+                data = request.get_json()
+                index = data.get('index')
+                host = data.get('host')
+                username = data.get('username')
+                key_path = data.get('key_path', '')
+                name = data.get('name', '')
+                
+                if index is None or not all([host, username]):
+                    return jsonify({'success': False, 'message': 'Index, host, and username are required'})
+                    
+                result = aws_manager.update_efs_connection(index, host, username, key_path, name)
+                return jsonify({'success': result, 'message': 'EFS connection updated'})
+            elif request.method == 'DELETE':
+                data = request.get_json()
+                index = data.get('index')
+                if index is None:
+                    return jsonify({'success': False, 'message': 'Index is required'})
+                result = aws_manager.remove_efs_connection(index)
+                return jsonify({'success': result, 'message': 'Connection removed'})
+        except Exception as e:
+            logger.error(f"Error handling EFS config: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/efs/list', methods=['GET', 'POST'])
+    def api_efs_list():
+        """API endpoint to list EFS files or search them"""
+        try:
+            if request.method == 'GET':
+                path = request.args.get('path', '.')
+                conn_id = int(request.args.get('connection_id', 0))
+                result = aws_manager.list_efs_files(path, conn_id)
+            else:
+                data = request.get_json() or {}
+                path = data.get('path', '.')
+                search_term = data.get('search_term')
+                conn_id = int(data.get('connection_id', 0))
+                
+                if search_term:
+                    result = aws_manager.search_efs_files(search_term, path, conn_id)
+                else:
+                    result = aws_manager.list_efs_files(path, conn_id)
+            return jsonify(result)
+        except Exception as e:
+             logger.error(f"Error handling EFS file list/search: {e}")
+             return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/efs/download', methods=['POST', 'GET'])
+    def api_efs_download():
+        """API endpoint to download EFS file (or folder) directly to browser"""
+        try:
+            if request.method == 'GET':
+                remote_path = request.args.get('remote_path')
+                is_folder = request.args.get('is_folder') == 'true'
+                conn_id = int(request.args.get('connection_id', 0))
+            else:
+                data = request.get_json() or {}
+                remote_path = data.get('remote_path')
+                is_folder = data.get('is_folder') == 'true'
+                conn_id = int(data.get('connection_id', 0))
+            
+            if not remote_path:
+                return jsonify({'success': False, 'message': 'Remote path is required'})
+                
+            if is_folder:
+                result = aws_manager.download_efs_folder(remote_path, conn_id)
+            else:
+                result = aws_manager.download_efs_file(remote_path, None, conn_id)
+                
+            if result.get('success') and 'local_path' in result:
+                from flask import send_file
+                local_path = result['local_path']
+                response = send_file(local_path, as_attachment=True, download_name=os.path.basename(local_path))
+                
+                # Cleanup after send
+                @response.call_on_close
+                def cleanup():
+                    try:
+                        if os.path.exists(local_path):
+                            os.remove(local_path)
+                    except Exception as e:
+                        logger.error(f"Error cleaning up temp file {local_path}: {e}")
+                
+                return response
+            
+            return jsonify(result)
+        except Exception as e:
+            logger.error(f"Error downloading EFS item: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/efs/upload', methods=['POST'])
+    def api_efs_upload():
+        """API endpoint to upload EFS file"""
+        try:
+             # Handle file upload from form data
+            if 'file' in request.files:
+                file = request.files['file']
+                remote_dir = request.form.get('remote_dir', '.')
+                
+                if not file:
+                    return jsonify({'success': False, 'message': 'File is required'})
+                
+                # Save to temporary file
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False) as temp:
+                    file.save(temp.name)
+                    temp_path = temp.name
+                
+                try:
+                    # Rename temp file to original filename to ensure correct upload name
+                    # Or pass original filename to manager if supported. 
+                    # Here we rely on EFSManager uploading the file at temp_path.
+                    # Wait, EFSManager.upload_file takes local_path and uploads it with os.path.basename(local_path).
+                    # So we need to rename the temp file to the original filename.
+                    
+                    # Create a directory for the temp file with the correct name
+                    temp_dir = tempfile.mkdtemp()
+                    temp_file_path = os.path.join(temp_dir, file.filename)
+                    if os.path.exists(temp_path):
+                        os.rename(temp_path, temp_file_path)
+                    
+                    conn_id = int(request.form.get('connection_id', 0))
+                    result = aws_manager.upload_efs_file(temp_file_path, remote_dir, conn_id)
+                    
+                    # Clean up
+                    if os.path.exists(temp_file_path):
+                        os.unlink(temp_file_path)
+                    os.rmdir(temp_dir)
+                    
+                    return jsonify(result)
+                    
+                except Exception as e:
+                     if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                     logger.error(f"Error during EFS upload: {e}")
+                     return jsonify({'success': False, 'message': str(e)})
+
+            else:
+                 return jsonify({'success': False, 'message': 'No file segment found'})
+
+        except Exception as e:
+            logger.error(f"Error in EFS upload API: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/efs/delete', methods=['POST'])
+    def api_efs_delete():
+        """API endpoint to delete EFS file or folder"""
+        try:
+            data = request.get_json()
+            remote_path = data.get('remote_path')
+            conn_id = int(data.get('connection_id', 0))
+            
+            if not remote_path:
+                return jsonify({'success': False, 'message': 'Remote path is required'})
+                
+            result = aws_manager.delete_efs_file(remote_path, conn_id)
+            return jsonify(result)
+        except Exception as e:
+            logger.error(f"Error deleting EFS file: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
     return app
 
 def run_app(host='0.0.0.0', port=5000, debug=False):

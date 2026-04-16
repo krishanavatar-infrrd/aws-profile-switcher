@@ -45,7 +45,8 @@
   },
   "predefined_buckets": [
     "swbc-infrrd-ingress-prod-us-east-1",
-    "swbc-infrrd-ingress-beta-us-east-1"
+    "swbc-infrrd-ingress-beta-us-east-1",
+    "swbc-idp-egress-prod-us-east-1"
   ],
   "assume_role_configs": {
     "swbc-ingress-beta": {
@@ -76,5 +77,36 @@
       "duration": 3600,
       "description": "SWBC egress Production Role"
     }
-  }
+  },
+  "efs_config": {
+    "host": "sftp.staging01-us-west-2.infrrd.cloud",
+    "username": "filereader",
+    "key_path": ""
+  },
+  "efs_connections": [
+    {
+      "name": "Stage",
+      "host": "sftp.staging01-us-west-2.infrrd.cloud",
+      "username": "filereader",
+      "key_path": ""
+    },
+    {
+      "name": "Swbc-Prod",
+      "host": "sftp.swbcprod01-us-east-1.infrrd.cloud",
+      "username": "filereader",
+      "key_path": ""
+    },
+    {
+      "name": "Polaris UAT",
+      "host": "sftp.uat01-us-west-2.infrrd.cloud",
+      "username": "filereader",
+      "key_path": ""
+    },
+    {
+      "name": "Swbc Uat",
+      "host": "sftp.swbcuat01-us-east-1.infrrd.cloud",
+      "username": "filereader",
+      "key_path": ""
+    }
+  ]
 }

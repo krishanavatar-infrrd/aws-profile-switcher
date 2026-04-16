@@ -72,6 +72,68 @@ class ConfigManager:
         """Get predefined buckets configuration"""
         return self.config.get('predefined_buckets', [])
 
+    def get_efs_connections(self) -> list:
+        """Get all EFS connections"""
+        connections = self.config.get('efs_connections', [])
+        # Ensure name exists for all connections
+        updated = False
+        for i, conn in enumerate(connections):
+            if 'name' not in conn:
+                conn['name'] = f"Connection {i+1}"
+                updated = True
+        if updated:
+            self.save_config()
+        return connections
+
+    def add_efs_connection(self, host: str, username: str, key_path: str = '', name: str = '') -> bool:
+        """Add a new EFS connection"""
+        if 'efs_connections' not in self.config:
+            self.config['efs_connections'] = []
+        
+        if not name:
+            name = f"Connection {len(self.config['efs_connections']) + 1}"
+            
+        connection = {
+            'name': name,
+            'host': host,
+            'username': username,
+            'key_path': key_path
+        }
+        
+        self.config['efs_connections'].append(connection)
+        return self.save_config()
+
+    def update_efs_connection(self, index: int, host: str, username: str, key_path: str = '', name: str = '') -> bool:
+        """Update an existing EFS connection"""
+        connections = self.config.get('efs_connections', [])
+        if 0 <= index < len(connections):
+            connections[index] = {
+                'name': name or connections[index].get('name', f"Connection {index+1}"),
+                'host': host,
+                'username': username,
+                'key_path': key_path
+            }
+            self.config['efs_connections'] = connections
+            return self.save_config()
+        return False
+
+    def remove_efs_connection(self, index: int) -> bool:
+        """Remove EFS connection by index"""
+        connections = self.config.get('efs_connections', [])
+        if 0 <= index < len(connections):
+            connections.pop(index)
+            self.config['efs_connections'] = connections
+            return self.save_config()
+        return False
+
+    def get_efs_config(self, index: int = 0) -> Dict[str, Any]:
+        """Get EFS configuration by index (legacy support)"""
+        connections = self.get_efs_connections()
+        if 0 <= index < len(connections):
+            return connections[index]
+        return self.config.get('efs_config', {}) # Fallback to old single config if it exists
+
+
 
 def get_region_display_name(region_code: str) -> str:
     """Get human-readable region name"""

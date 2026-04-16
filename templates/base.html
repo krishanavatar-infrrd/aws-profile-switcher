@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,54 +11,69 @@
         .navbar-brand {
             font-weight: bold;
         }
+
         .navbar .container-fluid {
             padding-left: 1rem;
             padding-right: 1rem;
         }
+
         .card {
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
             border: 1px solid rgba(0, 0, 0, 0.125);
         }
+
         .status-badge {
             font-size: 0.75rem;
         }
+
         .btn-action {
             margin: 2px;
         }
+
         .environment-card {
             transition: transform 0.2s;
         }
+
         .environment-card:hover {
             transform: translateY(-2px);
         }
+
         .current-env {
             border-left: 4px solid #28a745;
         }
+
         .loading {
             display: none;
         }
+
         .alert {
             margin-bottom: 1rem;
         }
+
         .profile-item {
             border-left: 3px solid #dee2e6;
             padding-left: 1rem;
             margin-bottom: 0.5rem;
         }
+
         .profile-item.valid {
             border-left-color: #28a745;
         }
+
         .profile-item.invalid {
             border-left-color: #dc3545;
         }
+
         .profile-item.role {
             border-left-color: #007bff;
         }
+
         .profile-item.both {
             border-left-color: #6f42c1;
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
@@ -99,9 +115,14 @@
                             <i class="fas fa-cloud"></i> S3
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('efs') }}">
+                            <i class="fas fa-network-wired"></i> EFS
+                        </a>
+                    </li>
                 </ul>
                 <span class="navbar-text">
-                    <i class="fas fa-user-circle"></i> 
+                    <i class="fas fa-user-circle"></i>
                     <span id="current-profile">Loading...</span>
                 </span>
             </div>
@@ -110,14 +131,15 @@
 
     <div class="container-fluid mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show"
+            role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
@@ -127,13 +149,30 @@
     <script>
         // Global functions for API calls
         function showAlert(message, type = 'success') {
+            // Remove any existing alerts first
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(a => a.remove());
+
             const alertDiv = document.createElement('div');
             alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
             alertDiv.innerHTML = `
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
-            document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.container').firstChild);
+            const container = document.querySelector('.container-fluid') || document.querySelector('.container');
+            if (container) {
+                container.insertBefore(alertDiv, container.firstChild);
+            } else {
+                document.body.insertBefore(alertDiv, document.body.firstChild);
+            }
+
+            // Auto hide success alerts after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    alertDiv.classList.remove('show');
+                    setTimeout(() => alertDiv.remove(), 150);
+                }, 5000);
+            }
         }
 
         function showLoading(element) {
@@ -146,37 +185,77 @@
             element.querySelector('.btn-text').style.display = 'inline-block';
         }
 
-        function apiCall(url, data, successCallback, errorCallback) {
-            fetch(url, {
-                method: 'POST',
+        function apiCall(url, data, successCallback, errorCallback, method = 'POST', showSuccessAlert = true) {
+            const options = {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    if (successCallback) successCallback(result);
-                    showAlert(result.message, 'success');
-                } else {
-                    if (errorCallback) errorCallback(result);
-                    showAlert(result.message, 'danger');
                 }
-            })
-            .catch(error => {
-                if (errorCallback) errorCallback(error);
-                showAlert('Network error: ' + error.message, 'danger');
-            });
+            };
+
+            if (method === 'POST' || method === 'PUT') {
+                options.body = JSON.stringify(data);
+            }
+
+            fetch(url, options)
+                .then(response => {
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.indexOf("application/json") !== -1) {
+                        return response.json();
+                    } else if (response.ok) {
+                        // Handle file downloads ONLY for successful non-JSON responses
+                        return response.blob().then(blob => ({ success: true, blob: blob, filename: response.headers.get('content-disposition') }));
+                    } else {
+                        // For errors that aren't JSON (like 404, 500 HTML pages), don't download
+                        return response.text().then(text => ({
+                            success: false,
+                            message: `Server Error (${response.status}): ${response.statusText}`
+                        }));
+                    }
+                })
+                .then(result => {
+                    if (result && result.blob) {
+                        // Trigger browser download
+                        const url = window.URL.createObjectURL(result.blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+
+                        let filename = 'download';
+                        if (result.filename) {
+                            const filenameMatch = result.filename.match(/filename="?([^"]+)"?/);
+                            if (filenameMatch) filename = filenameMatch[1];
+                        }
+
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+                        if (successCallback) successCallback({ success: true, message: 'Download started' });
+                        return;
+                    }
+
+                    if (result.success) {
+                        if (successCallback) successCallback(result);
+                        if (showSuccessAlert) showAlert(result.message || 'Operation successful', 'success');
+                    } else {
+                        if (errorCallback) errorCallback(result);
+                        showAlert(result.message || 'Operation failed', 'danger');
+                    }
+                })
+                .catch(error => {
+                    if (errorCallback) errorCallback(error);
+                    showAlert('Network error: ' + error.message, 'danger');
+                });
         }
 
         // Update current profile on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             fetch('/api/status')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        document.getElementById('current-profile').textContent = data.data.current_profile;
+                        document.getElementById('current-profile').textContent = data.current_profile || 'default';
                     }
                 })
                 .catch(error => {
@@ -186,4 +265,5 @@
     </script>
     {% block scripts %}{% endblock %}
 </body>
+
 </html>

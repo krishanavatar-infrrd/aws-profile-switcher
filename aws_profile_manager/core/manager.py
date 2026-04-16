@@ -10,6 +10,7 @@ from aws_profile_manager.aws.credentials import AWSCredentialsManager
 from aws_profile_manager.aws.environments import EnvironmentManager
 from aws_profile_manager.roles.assume_role import AWSRoleManager
 from aws_profile_manager.s3.manager import S3Manager
+from aws_profile_manager.efs.manager import EFSManager
 from aws_profile_manager.utils.logging import LoggerMixin, setup_logging
 
 
@@ -26,6 +27,7 @@ class AWSProfileManager(LoggerMixin):
         self.environment_manager = EnvironmentManager(self.config_manager)
         self.role_manager = AWSRoleManager()
         self.s3_manager = S3Manager()
+        self.efs_manager = EFSManager()
         
         self.logger.info("AWS Profile Manager initialized")
     
@@ -181,6 +183,62 @@ class AWSProfileManager(LoggerMixin):
     def check_s3_bucket_access(self, bucket_name: str) -> Dict:
         """Check if an S3 bucket is accessible"""
         return self.s3_manager.check_bucket_access(bucket_name)
+
+    # EFS Operations
+    def list_efs_files(self, remote_path: str = '.', connection_id: int = 0) -> Dict:
+        """List files in EFS"""
+        config = self.config_manager.get_efs_config(connection_id)
+        return self.efs_manager.list_files(config, remote_path)
+    
+    def search_efs_files(self, search_term: str, remote_path: str = '.', connection_id: int = 0) -> Dict:
+        """Search files in EFS"""
+        config = self.config_manager.get_efs_config(connection_id)
+        return self.efs_manager.search_files(config, search_term, remote_path)
+    
+    def download_efs_file(self, remote_path: str, local_path: str = None, connection_id: int = 0) -> Dict:
+        """Download file from EFS"""
+        config = self.config_manager.get_efs_config(connection_id)
+        return self.efs_manager.download_file(config, remote_path, local_path)
+    
+    def download_efs_folder(self, remote_path: str, connection_id: int = 0) -> Dict:
+        """Archive and download folder from EFS"""
+        config = self.config_manager.get_efs_config(connection_id)
+        return self.efs_manager.archive_folder(config, remote_path)
+
+    def download_efs_recursive(self, remote_path: str, connection_id: int, local_dest: str) -> Dict:
+        """Download folder from EFS recursively to local path"""
+        config = self.config_manager.get_efs_config(connection_id)
+        return self.efs_manager.download_recursive(config, remote_path, local_dest)
+    
+    def upload_efs_file(self, local_path: str, remote_dir: str, connection_id: int = 0) -> Dict:
+        """Upload file to EFS"""
+        config = self.config_manager.get_efs_config(connection_id)
+        return self.efs_manager.upload_file(config, local_path, remote_dir)
+    
+    def delete_efs_file(self, remote_path: str, connection_id: int = 0) -> Dict:
+        """Delete file from EFS"""
+        config = self.config_manager.get_efs_config(connection_id)
+        return self.efs_manager.delete_file(config, remote_path)
+    
+    def add_efs_connection(self, host: str, username: str, key_path: str = '', name: str = '') -> bool:
+        """Add a new EFS connection"""
+        return self.config_manager.add_efs_connection(host, username, key_path, name)
+    
+    def update_efs_connection(self, index: int, host: str, username: str, key_path: str = '', name: str = '') -> bool:
+        """Update an existing EFS connection"""
+        return self.config_manager.update_efs_connection(index, host, username, key_path, name)
+    
+    def remove_efs_connection(self, index: int) -> bool:
+        """Remove EFS connection"""
+        return self.config_manager.remove_efs_connection(index)
+    
+    def get_efs_connections(self) -> list:
+        """Get all EFS connections"""
+        return self.config_manager.get_efs_connections()
+    
+    def get_efs_config(self, index: int = 0) -> Dict:
+        """Get EFS configuration by index"""
+        return self.config_manager.get_efs_config(index)
     
     def get_status(self) -> Dict:
         """Get current status"""

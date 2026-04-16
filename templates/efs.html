@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+
+{% block title %}EFS Management - AWS Profile Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-network-wired text-primary"></i> SFTP Management
+            <small class="text-muted fs-6 fw-normal ms-2">Manage remote EFS via SFTP</small>
+        </h1>
+    </div>
+</div>
+
+<!-- Connections Section -->
+<div class="row mb-4" id="connectionSection">
+    <div class="col-lg-4">
+        <!-- Add/Edit Connection Form -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0" id="formTitle">
+                    <i class="fas fa-plus-circle text-success"></i> Add Connection
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="efsConfigForm">
+                    <input type="hidden" id="editIndex" value="-1">
+                    <div class="mb-3">
+                        <label for="efsName" class="form-label small fw-bold">Connection Name</label>
+                        <input type="text" class="form-control" id="efsName" placeholder="e.g. STAGE, PROD, UAT"
+                            required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="efsHost" class="form-label small fw-bold">Host (IP or DNS)</label>
+                        <input type="text" class="form-control" id="efsHost" placeholder="sftp.example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="efsUser" class="form-label small fw-bold">Username</label>
+                        <input type="text" class="form-control" id="efsUser" placeholder="filereader" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="efsKeyPath" class="form-label small fw-bold">Private Key Path <span
+                                class="text-muted fw-normal">(Optional)</span></label>
+                        <input type="text" class="form-control" id="efsKeyPath" placeholder="/path/to/id_rsa">
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" type="button" onclick="saveConnection()" id="saveBtn">
+                            <i class="fas fa-save"></i> Save Connection
+                        </button>
+                        <button class="btn btn-outline-secondary" type="button" onclick="resetForm()" id="cancelBtn"
+                            style="display: none;">
+                            Cancel Edit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <!-- Saved Connections List -->
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list text-primary"></i> Saved Connections
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="connectionsList" class="row">
+                    <!-- Connections injected here -->
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2 text-muted">Loading your connections...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Browser Section (Initially Hidden) -->
+<div class="row" id="fileBrowserSection" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-lg border-0">
+            <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary rounded p-2 me-3">
+                        <i class="fas fa-folder-open fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0 text-white" id="activeConnectionDisplay">File Browser</h5>
+                        <small class="text-light opacity-75" id="activeConnectionDetails"></small>
+                    </div>
+                </div>
+                <div class="btn-group shadow-sm">
+                    <button class="btn btn-success btn-sm px-3" onclick="showUploadModal()">
+                        <i class="fas fa-upload me-1"></i> Upload
+                    </button>
+                    <button class="btn btn-light btn-sm px-3" onclick="listFiles()" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm px-3" onclick="returnToConnections()">
+                        <i class="fas fa-times me-1"></i> Disconnect
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <!-- Navigation Bar -->
+                <div class="bg-light border-bottom p-2 d-flex align-items-center">
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="goUp()" id="goUpBtn" disabled>
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <nav aria-label="breadcrumb" class="flex-grow-1 overflow-hidden">
+                        <ol class="breadcrumb mb-0 py-1 px-2 bg-white border rounded shadow-sm" id="breadcrumbList"
+                            style="white-space: nowrap;">
+                            <li class="breadcrumb-item"><a href="#" onclick="listFiles('.')"><i class="fas fa-home"></i>
+                                    Root</a></li>
+                        </ol>
+                    </nav>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="p-3 bg-white border-bottom">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0"><i
+                                class="fas fa-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0" id="efsSearchInput"
+                            placeholder="Search files and folders recursively...">
+                        <button class="btn btn-primary" type="button" onclick="searchFiles()">Search</button>
+                        <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()"><i
+                                class="fas fa-times"></i></button>
+                    </div>
+                    <div id="searchResultsCount" class="small text-info mt-1 fw-bold"></div>
+                </div>
+
+                <!-- File Table View -->
+                <div class="file-browser-container" style="max-height: 60vh; overflow-y: auto;">
+                    <div id="fileList">
+                        <!-- Files injected here -->
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-light py-2 small text-muted d-flex justify-content-between">
+                <span id="itemCountDisplay">0 items</span>
+                <span id="currentStatusDisplay">Ready</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog shadow">
+        <div class="modal-content border-0">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-cloud-upload-alt me-2"></i>Upload to Server</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Destination</label>
+                    <div class="p-2 bg-light border-start border-success border-4 rounded">
+                        <code id="uploadPathDisplay" class="text-dark"></code>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="fileUpload" class="form-label small fw-bold text-muted text-uppercase mb-1">Select
+                        File</label>
+                    <input type="file" class="form-control" id="fileUpload">
+                </div>
+                <div id="uploadProgress" style="display: none;">
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                            role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <p class="text-center small text-muted mt-2">Uploading file, please wait...</p>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success px-4" onclick="uploadFile()">
+                    Start Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .file-browser-container {
+        min-height: 300px;
+    }
+
+    .file-row:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+        cursor: pointer;
+    }
+
+    .file-icon {
+        width: 24px;
+        text-align: center;
+        margin-right: 10px;
+    }
+
+    .breadcrumb-item+.breadcrumb-item::before {
+        content: "\f105";
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        color: #adb5bd;
+    }
+
+    .card {
+        border: none;
+        border-radius: 12px;
+    }
+
+    .connection-card:hover {
+        transform: translateY(-3px);
+        transition: all 0.2s ease;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentPath = '.';
+    let isSearchMode = false;
+    let savedConnections = [];
+    let activeConnectionId = -1;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadConnections();
+
+        // Handle Enter key in search input
+        document.getElementById('efsSearchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') searchFiles();
+        });
+    });
+
+    function loadConnections() {
+        apiCall('/api/efs/config', {}, function (data) {
+            if (data.success) {
+                savedConnections = data.connections || [];
+                displayConnections();
+            }
+        }, null, 'GET', false);
+    }
+
+    function displayConnections() {
+        const container = document.getElementById('connectionsList');
+        if (savedConnections.length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <img src="https://img.icons8.com/clouds/100/000000/network-cable.png" class="mb-3 opacity-50">
+                    <p class="text-muted mb-0">No SFTP connections configured yet.</p>
+                </div>`;
+            return;
+        }
+
+        let html = '';
+        savedConnections.forEach((conn, index) => {
+            const badgeClass = conn.name.toLowerCase().includes('prod') ? 'bg-danger' :
+                conn.name.toLowerCase().includes('stage') ? 'bg-warning text-dark' :
+                    conn.name.toLowerCase().includes('uat') ? 'bg-info text-white' : 'bg-primary';
+
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100 shadow-sm border connection-card border-start-0 border-end-0 border-bottom-0 border-top-3 border-${badgeClass.split('-')[1]}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">
+                                    <span class="badge ${badgeClass} me-2">${conn.name}</span>
+                                    <span class="text-dark fw-bold">${conn.host}</span>
+                                </h6>
+                                <div class="dropdown">
+                                    <button class="btn btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                        <li><a class="dropdown-item" href="#" onclick="editConnection(${index})"><i class="fas fa-edit me-2 text-primary"></i> Edit</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger" href="#" onclick="deleteConnection(${index})"><i class="fas fa-trash-alt me-2"></i> Delete</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p class="card-text small text-muted mb-3">
+                                <i class="fas fa-user me-1"></i> ${conn.username}  &bull; 
+                                <i class="fas fa-key me-1"></i> ${conn.key_path ? 'Custom Key' : 'Default Agent'}
+                            </p>
+                            <button class="btn btn-outline-primary btn-sm w-100 rounded-pill" onclick="connectToEFS(${index})">
+                                <i class="fas fa-plug me-1"></i> Connect Now
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function saveConnection() {
+        const name = document.getElementById('efsName').value.trim();
+        const host = document.getElementById('efsHost').value.trim();
+        const username = document.getElementById('efsUser').value.trim();
+        const keyPath = document.getElementById('efsKeyPath').value.trim();
+        const editIndex = parseInt(document.getElementById('editIndex').value);
+
+        if (!name || !host || !username) {
+            showAlert('warning', 'Name, Host and Username are required');
+            return;
+        }
+
+        const data = { name, host, username, key_path: keyPath, index: editIndex };
+        const method = editIndex >= 0 ? 'PUT' : 'POST';
+
+        apiCall('/api/efs/config', data, function (response) {
+            showAlert('success', editIndex >= 0 ? 'Connection updated' : 'Connection added');
+            resetForm();
+            loadConnections();
+        }, null, method);
+    }
+
+    function editConnection(index) {
+        const conn = savedConnections[index];
+        document.getElementById('efsName').value = conn.name;
+        document.getElementById('efsHost').value = conn.host;
+        document.getElementById('efsUser').value = conn.username;
+        document.getElementById('efsKeyPath').value = conn.key_path || '';
+        document.getElementById('editIndex').value = index;
+
+        document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit text-primary"></i> Edit Connection';
+        document.getElementById('saveBtn').innerHTML = '<i class="fas fa-check"></i> Update Connection';
+        document.getElementById('cancelBtn').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetForm() {
+        document.getElementById('efsConfigForm').reset();
+        document.getElementById('editIndex').value = '-1';
+        document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus-circle text-success"></i> Add Connection';
+        document.getElementById('saveBtn').innerHTML = '<i class="fas fa-save"></i> Save Connection';
+        document.getElementById('cancelBtn').style.display = 'none';
+    }
+
+    function deleteConnection(index) {
+        if (!confirm('Are you sure you want to delete this connection?')) return;
+        apiCall('/api/efs/config', { index: index }, function (result) {
+            showAlert('success', 'Connection removed');
+            loadConnections();
+        }, null, 'DELETE');
+    }
+
+    function connectToEFS(index) {
+        activeConnectionId = index;
+        const conn = savedConnections[index];
+
+        document.getElementById('activeConnectionDisplay').textContent = conn.name;
+        document.getElementById('activeConnectionDetails').textContent = `${conn.username}@${conn.host}`;
+
+        document.getElementById('connectionSection').style.display = 'none';
+        document.getElementById('fileBrowserSection').style.display = 'block';
+
+        listFiles('.');
+    }
+
+    function returnToConnections() {
+        document.getElementById('fileBrowserSection').style.display = 'none';
+        document.getElementById('connectionSection').style.display = 'flex';
+        activeConnectionId = -1;
+    }
+
+    function listFiles(path = '.') {
+        currentPath = path;
+        isSearchMode = false;
+        const listDiv = document.getElementById('fileList');
+        listDiv.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Refreshing view...</p></div>';
+        document.getElementById('currentStatusDisplay').textContent = 'Loading...';
+
+        const url = `/api/efs/list?path=${encodeURIComponent(path)}&connection_id=${activeConnectionId}`;
+        apiCall(url, {}, function (data) {
+            if (data.success) {
+                updateBreadcrumb(data.current_path);
+                displayFiles(data.folders, data.objects);
+                document.getElementById('currentStatusDisplay').textContent = 'Connected';
+            } else {
+                listDiv.innerHTML = `<div class="p-4"><div class="alert alert-danger shadow-sm"><i class="fas fa-exclamation-triangle me-2"></i> ${data.message}</div><button class="btn btn-primary" onclick="returnToConnections()">Back to Connections</button></div>`;
+                document.getElementById('currentStatusDisplay').textContent = 'Error';
+            }
+        }, null, 'GET', false);
+    }
+
+    function searchFiles() {
+        const term = document.getElementById('efsSearchInput').value.trim();
+        if (!term) return;
+
+        // If the term contains a slash, treat it as a path and navigate directly
+        if (term.includes('/')) {
+            let targetPath = term;
+            // Resolve relative path if it doesn't start with /
+            if (!term.startsWith('/') && currentPath !== '.' && currentPath !== '/') {
+                const base = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+                targetPath = base + term;
+            }
+            listFiles(targetPath);
+            return;
+        }
+
+        isSearchMode = true;
+        document.getElementById('fileList').innerHTML = '<div class="text-center py-5"><div class="spinner-grow text-info"></div><p class="mt-2 text-muted">Searching entire filesystem...</p></div>';
+
+        apiCall('/api/efs/list', { path: currentPath, search_term: term, connection_id: activeConnectionId }, function (data) {
+            if (data.success) {
+                const total = (data.folders?.length || 0) + (data.objects?.length || 0);
+                document.getElementById('searchResultsCount').textContent = `Found ${total} results for "${term}"`;
+                displayFiles(data.folders, data.objects);
+            } else {
+                showAlert('danger', data.message);
+            }
+        }, null, 'POST', false);
+    }
+
+    function clearSearch() {
+        document.getElementById('efsSearchInput').value = '';
+        document.getElementById('searchResultsCount').textContent = '';
+        listFiles(currentPath);
+    }
+
+    function displayFiles(folders, objects) {
+        const container = document.getElementById('fileList');
+        if ((!folders || folders.length === 0) && (!objects || objects.length === 0)) {
+            container.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-ghost fa-3x mb-3"></i><p>This directory is empty</p></div>';
+            document.getElementById('itemCountDisplay').textContent = '0 items';
+            return;
+        }
+
+        let html = '<table class="table table-hover mb-0"><thead class="table-light sticky-top"><tr><th class="ps-4">Name</th><th>Size</th><th>Permissions</th><th class="text-end pe-4">Actions</th></tr></thead><tbody>';
+
+        folders.forEach(f => {
+            html += `<tr class="file-row" onclick="event.stopPropagation(); listFiles('${f.path}')">
+                <td class="ps-4"><div class="d-flex align-items-center"><i class="fas fa-folder text-warning fa-lg file-icon"></i> <span class="fw-bold text-dark">${f.name}</span></div></td>
+                <td><span class="text-muted small">Folder</span></td>
+                <td><code class="small text-muted">${f.permissions}</code></td>
+                <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-success border" onclick="event.stopPropagation(); downloadFolder('${f.path}')" title="Download to Local (Unzipped)"><i class="fas fa-download"></i></button>
+                    <button class="btn btn-sm btn-light border ms-1" onclick="event.stopPropagation(); deleteFile('${f.path}')" title="Delete"><i class="fas fa-trash text-danger"></i></button>
+                </td>
+            </tr>`;
+        });
+
+        objects.forEach(o => {
+            html += `<tr class="file-row" onclick="event.stopPropagation(); downloadFile('${o.path}')">
+                <td class="ps-4"><div class="d-flex align-items-center"><i class="fas fa-file-alt text-primary fa-lg file-icon"></i> ${o.name}</div></td>
+                <td><span class="small">${formatBytes(o.size)}</span></td>
+                <td><code class="small text-muted">${o.permissions}</code></td>
+                <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-primary border" onclick="event.stopPropagation(); downloadFile('${o.path}')" title="Download to Local"><i class="fas fa-download"></i></button>
+                    <button class="btn btn-sm btn-light border ms-1" onclick="event.stopPropagation(); deleteFile('${o.path}')" title="Delete"><i class="fas fa-trash text-danger"></i></button>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        document.getElementById('itemCountDisplay').textContent = `${folders.length + objects.length} items`;
+        document.getElementById('goUpBtn').disabled = currentPath === '.' || currentPath === '/';
+    }
+
+    function updateBreadcrumb(path) {
+        const bl = document.getElementById('breadcrumbList');
+        if (!path || path === '.' || path === '/') {
+            bl.innerHTML = '<li class="breadcrumb-item"><a href="#" onclick="listFiles(\'.\')"><i class="fas fa-home"></i> Root</a></li>';
+            return;
+        }
+
+        let html = '<li class="breadcrumb-item"><a href="#" onclick="listFiles(\'.\')"><i class="fas fa-home"></i></a></li>';
+        const parts = path.split('/').filter(p => p !== '');
+        let acc = '';
+        parts.forEach((p, i) => {
+            acc += '/' + p;
+            if (i === parts.length - 1) html += `<li class="breadcrumb-item active">${p}</li>`;
+            else html += `<li class="breadcrumb-item"><a href="#" onclick="listFiles('${acc}')">${p}</a></li>`;
+        });
+        bl.innerHTML = html;
+    }
+
+    function goUp() {
+        if (currentPath === '.' || currentPath === '/') return;
+        const p = currentPath.split('/').filter(x => x !== '');
+        p.pop();
+        listFiles(p.length === 0 ? '.' : '/' + p.join('/'));
+    }
+
+    function showUploadModal() {
+        document.getElementById('uploadPathDisplay').textContent = currentPath;
+        document.getElementById('fileUpload').value = '';
+        document.getElementById('uploadProgress').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('uploadModal')).show();
+    }
+
+    function uploadFile() {
+        const input = document.getElementById('fileUpload');
+        if (!input.files[0]) return showAlert('warning', 'Choose a file first');
+
+        const fd = new FormData();
+        fd.append('file', input.files[0]);
+        fd.append('remote_dir', currentPath);
+        fd.append('connection_id', activeConnectionId);
+
+        document.getElementById('uploadProgress').style.display = 'block';
+        fetch('/api/efs/upload', { method: 'POST', body: fd })
+            .then(r => r.json()).then(d => {
+                document.getElementById('uploadProgress').style.display = 'none';
+                if (d.success) {
+                    showAlert('success', d.message);
+                    bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
+                    listFiles(currentPath);
+                } else showAlert('danger', d.message);
+            });
+    }
+
+    function downloadFile(p) {
+        showAlert('info', 'Downloading to your Downloads folder...', 'info');
+        apiCall('/api/efs/download_local', { remote_path: p, connection_id: activeConnectionId, is_folder: 'false' }, function (r) {
+            if (r.success) showAlert('success', r.message);
+            else showAlert('danger', r.message);
+        });
+    }
+
+    function downloadFolder(p) {
+        showAlert('warning', 'Downloading folder recursively to Downloads. Please wait...', 'info');
+        apiCall('/api/efs/download_local', { remote_path: p, connection_id: activeConnectionId, is_folder: 'true' }, function (r) {
+            if (r.success) showAlert('success', r.message);
+            else showAlert('danger', r.message);
+        });
+    }
+
+    function deleteFile(p) {
+        if (!confirm(`Permanently delete "${p}"?`)) return;
+        apiCall('/api/efs/delete', { remote_path: p, connection_id: activeConnectionId }, function (r) {
+            showAlert('success', r.message);
+            listFiles(currentPath);
+        });
+    }
+
+    function formatBytes(b, d = 2) {
+        if (b === 0) return '0 B';
+        const k = 1024;
+        const s = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(b) / Math.log(k));
+        return parseFloat((b / Math.pow(k, i)).toFixed(d)) + ' ' + s[i];
+    }
+</script>
+{% endblock %}
