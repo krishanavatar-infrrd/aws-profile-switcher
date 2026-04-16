@@ -5,7 +5,7 @@ Configuration management for AWS Profile Manager
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class ConfigManager:
     def get_base_credentials_path(self) -> str:
         """Get base credentials path"""
         return self.config.get('base_credentials_path', '')
-
+    
     def get_predefined_buckets(self) -> list:
         """Get predefined buckets configuration"""
         return self.config.get('predefined_buckets', [])
@@ -132,6 +132,87 @@ class ConfigManager:
         if 0 <= index < len(connections):
             return connections[index]
         return self.config.get('efs_config', {}) # Fallback to old single config if it exists
+
+    def get_mongo_configs(self) -> List[Dict[str, Any]]:
+        """Get all MongoDB configurations"""
+        return self.config.get('mongo_configs', [])
+
+    def add_mongo_config(self, name: str, connect_string: str, username: str = '', password: str = '', default_database: str = '') -> bool:
+        """Add a new MongoDB configuration"""
+        if 'mongo_configs' not in self.config:
+            self.config['mongo_configs'] = []
+        
+        config = {
+            'name': name,
+            'connect_string': connect_string,
+            'username': username,
+            'password': password,
+            'default_database': default_database,
+            'manual_collections': [],
+            'manual_databases': []
+        }
+        
+        # Check if exists
+        for i, c in enumerate(self.config['mongo_configs']):
+            if c['name'] == name:
+                self.config['mongo_configs'][i] = config
+                return self.save_config()
+                
+        self.config['mongo_configs'].append(config)
+        return self.save_config()
+
+    def remove_mongo_config(self, name: str) -> bool:
+        """Remove MongoDB configuration by name"""
+        configs = self.config.get('mongo_configs', [])
+        new_configs = [c for c in configs if c['name'] != name]
+        if len(new_configs) != len(configs):
+            self.config['mongo_configs'] = new_configs
+            return self.save_config()
+        return False
+
+    def add_manual_collection(self, env_name: str, collection_name: str) -> bool:
+        """Add a manual collection to an environment's favorite list"""
+        configs = self.config.get('mongo_configs', [])
+        for config in configs:
+            if config['name'] == env_name:
+                if 'manual_collections' not in config:
+                    config['manual_collections'] = []
+                if collection_name not in config['manual_collections']:
+                    config['manual_collections'].append(collection_name)
+                    return self.save_config()
+        return False
+
+    def remove_manual_collection(self, env_name: str, collection_name: str) -> bool:
+        """Remove a manual collection from an environment's favorite list"""
+        configs = self.config.get('mongo_configs', [])
+        for config in configs:
+            if config['name'] == env_name:
+                if 'manual_collections' in config and collection_name in config['manual_collections']:
+                    config['manual_collections'].remove(collection_name)
+                    return self.save_config()
+        return False
+
+    def add_manual_database(self, env_name: str, db_name: str) -> bool:
+        """Add a manual database to an environment's favorite list"""
+        configs = self.config.get('mongo_configs', [])
+        for config in configs:
+            if config['name'] == env_name:
+                if 'manual_databases' not in config:
+                    config['manual_databases'] = []
+                if db_name not in config['manual_databases']:
+                    config['manual_databases'].append(db_name)
+                    return self.save_config()
+        return False
+
+    def remove_manual_database(self, env_name: str, db_name: str) -> bool:
+        """Remove a manual database from an environment's favorite list"""
+        configs = self.config.get('mongo_configs', [])
+        for config in configs:
+            if config['name'] == env_name:
+                if 'manual_databases' in config and db_name in config['manual_databases']:
+                    config['manual_databases'].remove(db_name)
+                    return self.save_config()
+        return False
 
 
 

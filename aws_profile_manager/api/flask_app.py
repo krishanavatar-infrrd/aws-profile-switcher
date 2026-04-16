@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, flash, session
 from aws_profile_manager.core.manager import AWSProfileManager
 from aws_profile_manager.utils.logging import setup_logging
 from aws_profile_manager.api.session_manager import SessionManager
+from aws_profile_manager.mongo.manager import MongoManager
 import logging
 import os
 import configparser
@@ -155,6 +156,15 @@ def create_app():
         except Exception as e:
             logger.error(f'Error in efs: {e}')
             return render_template('efs.html')
+    
+    @app.route('/mongo')
+    def mongo():
+        try:
+            mongo_configs = aws_manager.config_manager.get_mongo_configs()
+            return render_template('mongo.html', mongo_configs=mongo_configs)
+        except Exception as e:
+            logger.error(f'Error in mongo UI: {e}')
+            return render_template('mongo.html', mongo_configs=[])
     
     @app.route('/assume-role-page')
     def assume_role_page():
@@ -1491,6 +1501,187 @@ echo "⏰ Credentials will expire in 1 hour"
             return jsonify(result)
         except Exception as e:
             logger.error(f"Error deleting EFS file: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    # MongoDB API Endpoints
+    @app.route('/api/mongo/configs', methods=['GET'])
+    def api_mongo_get_configs():
+        try:
+            configs = aws_manager.config_manager.get_mongo_configs()
+            return jsonify({'success': True, 'configs': configs})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/configs', methods=['POST'])
+    def api_mongo_save_config():
+        try:
+            data = request.get_json()
+            name = data.get('name')
+            connect_string = data.get('connect_string')
+            username = data.get('username', '')
+            password = data.get('password', '')
+            default_database = data.get('default_database', '')
+            
+            if not name or not connect_string:
+                return jsonify({'success': False, 'message': 'Name and connection string are required'})
+            
+            result = aws_manager.config_manager.add_mongo_config(name, connect_string, username, password, default_database)
+            return jsonify({'success': result, 'message': 'Config saved' if result else 'Failed to save config'})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/configs/<name>', methods=['DELETE'])
+    def api_mongo_delete_config(name):
+        try:
+            result = aws_manager.config_manager.remove_mongo_config(name)
+            return jsonify({'success': result, 'message': 'Config removed' if result else 'Failed to remove config'})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/databases', methods=['GET'])
+    def api_mongo_get_databases():
+        try:
+            name = request.args.get('env_name')
+            configs = aws_manager.config_manager.get_mongo_configs()
+            config = next((c for c in configs if c['name'] == name), None)
+            
+            if not config:
+                return jsonify({'success': False, 'message': 'Environment not found'})
+            
+            manager = MongoManager(config['connect_string'], config)
+            dbs = manager.get_databases()
+            
+            # Combine with manual databases
+            manual_dbs = config.get('manual_databases', [])
+            all_dbs = list(set(dbs + manual_dbs))
+            
+            manager.close()
+            return jsonify({'success': True, 'databases': all_dbs, 'manual_databases': manual_dbs})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/databases', methods=['POST'])
+    def api_mongo_add_database():
+        try:
+            data = request.get_json()
+            env_name = data.get('env_name')
+            db_name = data.get('db_name')
+            
+            if not env_name or not db_name:
+                return jsonify({'success': False, 'message': 'Env name and DB name are required'})
+            
+            result = aws_manager.config_manager.add_manual_database(env_name, db_name)
+            return jsonify({'success': result, 'message': 'Database added' if result else 'Failed to add database'})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/databases/manual', methods=['DELETE'])
+    def api_mongo_remove_manual_database():
+        try:
+            data = request.get_json()
+            env_name = data.get('env_name')
+            db_name = data.get('db_name')
+            
+            result = aws_manager.config_manager.remove_manual_database(env_name, db_name)
+            return jsonify({'success': result, 'message': 'Database removed' if result else 'Failed to remove database'})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/collections', methods=['GET'])
+    def api_mongo_get_collections():
+        try:
+            name = request.args.get('env_name')
+            db_name = request.args.get('db_name')
+            configs = aws_manager.config_manager.get_mongo_configs()
+            config = next((c for c in configs if c['name'] == name), None)
+            
+            if not config:
+                return jsonify({'success': False, 'message': 'Environment not found'})
+            
+            manager = MongoManager(config['connect_string'], config)
+            cols = manager.get_collections(db_name)
+            
+            # Combine with manual collections
+            manual_cols = config.get('manual_collections', [])
+            all_cols = list(set(cols + manual_cols))
+            
+            manager.close()
+            return jsonify({'success': True, 'collections': all_cols, 'manual_collections': manual_cols})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/collections', methods=['POST'])
+    def api_mongo_add_collection():
+        try:
+            data = request.get_json()
+            env_name = data.get('env_name')
+            collection_name = data.get('collection_name')
+            
+            if not env_name or not collection_name:
+                return jsonify({'success': False, 'message': 'Env name and collection name are required'})
+            
+            result = aws_manager.config_manager.add_manual_collection(env_name, collection_name)
+            return jsonify({'success': result, 'message': 'Collection added' if result else 'Failed to add collection'})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/query', methods=['POST'])
+    def api_mongo_query():
+        try:
+            data = request.get_json()
+            env_name = data.get('env_name')
+            db_name = data.get('db_name')
+            collection_name = data.get('collection_name')
+            query_str = data.get('query', '{}')
+            projection_str = data.get('projection', '{}')
+            sort_str = data.get('sort', '{}')
+            limit = int(data.get('limit', 100))
+            skip = int(data.get('skip', 0))
+            is_encrypted = data.get('is_encrypted', False)
+            
+            configs = aws_manager.config_manager.get_mongo_configs()
+            config = next((c for c in configs if c['name'] == env_name), None)
+            
+            if not config:
+                return jsonify({'success': False, 'message': 'Environment not found'})
+            
+            # Parse JSON strings
+            import json
+            query_dict = json.loads(query_str) if query_str else {}
+            projection_dict = json.loads(projection_str) if projection_str else None
+            sort_raw = json.loads(sort_str) if sort_str else {}
+            
+            # Convert sort_raw to list of tuples if it's a dict
+            sort_dict = []
+            if isinstance(sort_raw, dict):
+                for k, v in sort_raw.items():
+                    sort_dict.append((k, v))
+            elif isinstance(sort_raw, list):
+                sort_dict = [tuple(x) for x in sort_raw]
+            
+            manager = MongoManager(config['connect_string'], config)
+            query_result = manager.query(db_name, collection_name, query_dict, projection_dict, sort_dict, limit, skip, is_encrypted)
+            manager.close()
+            
+            return jsonify({
+                'success': True, 
+                'results': query_result['results'],
+                'total_count': query_result['total_count']
+            })
+        except Exception as e:
+            logger.error(f"Error in mongo query: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
+    @app.route('/api/mongo/collections/manual', methods=['DELETE'])
+    def api_mongo_remove_manual_collection():
+        try:
+            data = request.get_json()
+            env_name = data.get('env_name')
+            collection_name = data.get('collection_name')
+            
+            result = aws_manager.config_manager.remove_manual_collection(env_name, collection_name)
+            return jsonify({'success': result, 'message': 'Collection removed' if result else 'Failed to remove collection'})
+        except Exception as e:
             return jsonify({'success': False, 'message': str(e)})
 
     return app

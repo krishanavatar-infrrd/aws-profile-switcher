@@ -108,5 +108,31 @@
       "username": "filereader",
       "key_path": ""
     }
+  ],
+  "mongo_configs": [
+    {
+      "name": "Stage",
+      "connect_string": "mongodb://krishnavatar:bhu863hs63n6s0b@mongodb.staging01-us-west-2.infrrd.cloud:28000/?authSource=admin&readPreference=primary&directConnection=true&ssl=false",
+      "username": "",
+      "password": "",
+      "manual_collections": [],
+      "manual_databases": []
+    },
+    {
+      "name": "Swbc Prod",
+      "connect_string": "mongodb://krishnavtar:Lq9skAfkzNeZ@mongodb.swbcprod01-us-east-1.infrrd.cloud:28000/?authSource=admin&readPreference=primary&directConnection=true&ssl=false",
+      "username": "",
+      "password": "",
+      "manual_collections": [],
+      "manual_databases": []
+    },
+    {
+      "name": "Swbc Uat",
+      "connect_string": "mongodb://krishnavatar:bshs688365bv@mongodb.swbcuat01-us-east-1.infrrd.cloud:28000/?authSource=admin&readPreference=primary&directConnection=true&ssl=false",
+      "username": "",
+      "password": "",
+      "manual_collections": [],
+      "manual_databases": []
+    }
   ]
 }

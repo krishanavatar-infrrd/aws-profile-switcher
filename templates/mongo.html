@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+
+{% block title %}Mongo Query - AWS Profile Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-database"></i> MongoDB Query
+        </h1>
+    </div>
+</div>
+
+<!-- Configuration & selection -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-plug"></i> Connection</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="showAddEnvModal()">
+                    <i class="fas fa-plus"></i> Add Env
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="envSelect" class="form-label">Environment</label>
+                    <div class="input-group">
+                        <select class="form-select" id="envSelect" onchange="loadDatabases()">
+                            <option value="">Select Environment</option>
+                            {% for config in mongo_configs %}
+                            <option value="{{ config.name }}">{{ config.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-outline-danger" onclick="deleteCurrentEnv()">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="dbSelect" class="form-label">Database</label>
+                    <div class="input-group">
+                        <select class="form-select" id="dbSelect" onchange="loadCollections()">
+                            <option value="">Select Database</option>
+                        </select>
+                        <button class="btn btn-outline-primary" onclick="showAddDBModal()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="manualDBsList" class="mt-2 text-muted small">
+                        <!-- Manual DBs will go here -->
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="collectionSelect" class="form-label">Collection</label>
+                    <div class="input-group">
+                        <select class="form-select" id="collectionSelect">
+                            <option value="">Select Collection</option>
+                        </select>
+                        <button class="btn btn-outline-primary" onclick="showAddCollectionModal()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="manualCollectionsList" class="mt-2">
+                        <!-- Manual collections badges will go here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-search"></i> Query</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="queryInput" class="form-label">Filter (JSON)</label>
+                        <textarea class="form-control" id="queryInput" rows="3"
+                            placeholder='{ "documentId": "..." }'>{}</textarea>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="projectionInput" class="form-label">Project (JSON)</label>
+                        <textarea class="form-control" id="projectionInput" rows="3"
+                            placeholder='{ "fieldName": 1 }'></textarea>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="sortInput" class="form-label">Sort (JSON)</label>
+                        <input type="text" class="form-control" id="sortInput" placeholder='{ "createdDate": -1 }'>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="limitInput" class="form-label">Limit</label>
+                        <input type="number" class="form-control" id="limitInput" value="100">
+                    </div>
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="isEncryptedToggle">
+                            <label class="form-check-label" for="isEncryptedToggle">Decrypt Results</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span id="resultSummary" class="text-muted small"></span>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="copyResults()">
+                            <i class="fas fa-copy"></i> Copy JSON
+                        </button>
+                        <button class="btn btn-primary" onclick="runQuery(1)">
+                            <i class="fas fa-play"></i> Run Query
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-list"></i> Results</h5>
+                <div class="d-flex align-items-center">
+                    <nav aria-label="Page navigation" class="me-3">
+                        <ul class="pagination pagination-sm mb-0" id="paginationControls" style="display: none;">
+                            <li class="page-item" id="prevPageItem">
+                                <a class="page-link" href="#" onclick="changePage(-1)">Previous</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link" id="pageIndicator">Page 1</span>
+                            </li>
+                            <li class="page-item" id="nextPageItem">
+                                <a class="page-link" href="#" onclick="changePage(1)">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                    <span id="resultCount" class="badge bg-secondary">0 documents</span>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <pre id="resultsDisplay" class="bg-dark text-light p-3 mb-0"
+                    style="max-height: 600px; overflow-y: auto;">[]</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div class="modal fade" id="addEnvModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add MongoDB Environment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addEnvForm">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" id="envName" placeholder="e.g. stage, uat">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Connection String</label>
+                        <textarea class="form-control" id="envConnString" rows="2"
+                            placeholder="mongodb://user:pass@host:port/..."></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" id="envUsername" placeholder="Optional">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" id="envPassword" placeholder="Optional">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Default Database (Decryption)</label>
+                        <input type="text" class="form-control" id="envDefaultDB" placeholder="e.g. titanDB">
+                        <div class="form-text">Used for initializing the decryption library environment.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveEnv()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addDBModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Favorite Database</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDBForm">
+                    <div class="mb-3">
+                        <label class="form-label">Database Name</label>
+                        <input type="text" class="form-control" id="newDBName" placeholder="e.g. titanDB">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addManualDatabase()">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addCollectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Favorite Collection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCollectionForm">
+                    <div class="mb-3">
+                        <label class="form-label">Collection Name</label>
+                        <input type="text" class="form-control" id="newCollectionName"
+                            placeholder="e.g. extraction_field">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addManualCollection()">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let addEnvModal, addDBModal, addCollectionModal;
+    let currentPage = 1;
+    let totalDocs = 0;
+    let currentResults = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        addEnvModal = new bootstrap.Modal(document.getElementById('addEnvModal'));
+        addDBModal = new bootstrap.Modal(document.getElementById('addDBModal'));
+        addCollectionModal = new bootstrap.Modal(document.getElementById('addCollectionModal'));
+    });
+
+    function showAddEnvModal() {
+        addEnvModal.show();
+    }
+
+    function showAddDBModal() {
+        const env = document.getElementById('envSelect').value;
+        if (!env) {
+            showAlert('Please select an environment first', 'warning');
+            return;
+        }
+        addDBModal.show();
+    }
+
+    function showAddCollectionModal() {
+        const env = document.getElementById('envSelect').value;
+        if (!env) {
+            showAlert('Please select an environment first', 'warning');
+            return;
+        }
+        addCollectionModal.show();
+    }
+
+    function saveEnv() {
+        const name = document.getElementById('envName').value;
+        const connString = document.getElementById('envConnString').value;
+        const username = document.getElementById('envUsername').value;
+        const password = document.getElementById('envPassword').value;
+        const defaultDB = document.getElementById('envDefaultDB').value;
+
+        if (!name || !connString) {
+            showAlert('Name and connection string are required', 'danger');
+            return;
+        }
+
+        apiCall('/api/mongo/configs', {
+            name,
+            connect_string: connString,
+            username: username,
+            password: password,
+            default_database: defaultDB
+        }, function (result) {
+            addEnvModal.hide();
+            location.reload();
+        });
+    }
+
+    function deleteCurrentEnv() {
+        const name = document.getElementById('envSelect').value;
+        if (!name) return;
+
+        if (!confirm(`Are you sure you want to delete environment "${name}"?`)) return;
+
+        apiCall(`/api/mongo/configs/${name}`, null, function (result) {
+            location.reload();
+        }, null, 'DELETE');
+    }
+
+    function loadDatabases() {
+        const env = document.getElementById('envSelect').value;
+        const dbSelect = document.getElementById('dbSelect');
+        dbSelect.innerHTML = '<option value="">Loading databases...</option>';
+
+        if (!env) {
+            dbSelect.innerHTML = '<option value="">Select Database</option>';
+            return;
+        }
+
+        fetch(`/api/mongo/databases?env_name=${env}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    dbSelect.innerHTML = '<option value="">Select Database</option>';
+                    data.databases.sort().forEach(db => {
+                        const opt = document.createElement('option');
+                        opt.value = db;
+                        opt.textContent = db;
+                        if (data.manual_databases && data.manual_databases.includes(db)) {
+                            opt.textContent += ' (Manual)';
+                        }
+                        dbSelect.appendChild(opt);
+                    });
+
+                    renderManualDBBadges(env, data.manual_databases);
+                } else {
+                    dbSelect.innerHTML = '<option value="">Error loading DBs</option>';
+                    showAlert(data.message, 'danger');
+                }
+            });
+    }
+
+    function renderManualDBBadges(env, manuals) {
+        const list = document.getElementById('manualDBsList');
+        list.innerHTML = '';
+        if (manuals && manuals.length > 0) {
+            manuals.forEach(db => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-secondary text-light me-2 mb-2 p-2 d-inline-flex align-items-center';
+                badge.innerHTML = `
+                    ${db}
+                    <i class="fas fa-times ms-2 cursor-pointer" onclick="removeManualDatabase('${db}')"></i>
+                `;
+                list.appendChild(badge);
+            });
+        }
+    }
+
+    function addManualDatabase() {
+        const env = document.getElementById('envSelect').value;
+        const name = document.getElementById('newDBName').value;
+
+        if (!env || !name) return;
+
+        apiCall('/api/mongo/databases', { env_name: env, db_name: name }, function (result) {
+            addDBModal.hide();
+            loadDatabases();
+        });
+    }
+
+    function removeManualDatabase(dbName) {
+        const env = document.getElementById('envSelect').value;
+        if (!env) return;
+
+        apiCall('/api/mongo/databases/manual', { env_name: env, db_name: dbName }, function (result) {
+            loadDatabases();
+        }, null, 'DELETE');
+    }
+
+    function loadCollections() {
+        const env = document.getElementById('envSelect').value;
+        const db = document.getElementById('dbSelect').value;
+        const colSelect = document.getElementById('collectionSelect');
+        colSelect.innerHTML = '<option value="">Loading collections...</option>';
+
+        if (!env || !db) {
+            colSelect.innerHTML = '<option value="">Select Collection</option>';
+            return;
+        }
+
+        fetch(`/api/mongo/collections?env_name=${env}&db_name=${db}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    colSelect.innerHTML = '<option value="">Select Collection</option>';
+                    data.collections.sort().forEach(col => {
+                        const opt = document.createElement('option');
+                        opt.value = col;
+                        opt.textContent = col;
+                        if (data.manual_collections && data.manual_collections.includes(col)) {
+                            opt.textContent += ' (Manual)';
+                        }
+                        colSelect.appendChild(opt);
+                    });
+
+                    // Render manual collection badges
+                    renderManualBadges(env, data.manual_collections);
+                } else {
+                    colSelect.innerHTML = '<option value="">Error loading collections</option>';
+                    showAlert(data.message, 'danger');
+                }
+            });
+    }
+
+    function renderManualBadges(env, manuals) {
+        const list = document.getElementById('manualCollectionsList');
+        list.innerHTML = '';
+        if (manuals && manuals.length > 0) {
+            manuals.forEach(col => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-info text-dark me-2 mb-2 p-2 d-inline-flex align-items-center';
+                badge.innerHTML = `
+                    ${col}
+                    <i class="fas fa-times ms-2 cursor-pointer" onclick="removeManualCollection('${col}')"></i>
+                `;
+                list.appendChild(badge);
+            });
+        }
+    }
+
+    function addManualCollection() {
+        const env = document.getElementById('envSelect').value;
+        const name = document.getElementById('newCollectionName').value;
+
+        if (!env || !name) return;
+
+        apiCall('/api/mongo/collections', { env_name: env, collection_name: name }, function (result) {
+            addCollectionModal.hide();
+            loadCollections();
+        });
+    }
+
+    function removeManualCollection(colName) {
+        const env = document.getElementById('envSelect').value;
+        if (!env) return;
+
+        apiCall('/api/mongo/collections/manual', { env_name: env, collection_name: colName }, function (result) {
+            loadCollections();
+        }, null, 'DELETE');
+    }
+
+    function runQuery(page = 1) {
+        const env = document.getElementById('envSelect').value;
+        const db = document.getElementById('dbSelect').value;
+        const col = document.getElementById('collectionSelect').value;
+        const query = document.getElementById('queryInput').value;
+        const projection = document.getElementById('projectionInput').value;
+        const sort = document.getElementById('sortInput').value;
+        const limit = parseInt(document.getElementById('limitInput').value) || 100;
+        const isEncrypted = document.getElementById('isEncryptedToggle').checked;
+
+        if (!env || !db || !col) {
+            showAlert('Please select Env, DB, and Collection', 'warning');
+            return;
+        }
+
+        currentPage = page;
+        const skip = (currentPage - 1) * limit;
+
+        const display = document.getElementById('resultsDisplay');
+        display.textContent = 'Executing query...';
+
+        apiCall('/api/mongo/query', {
+            env_name: env,
+            db_name: db,
+            collection_name: col,
+            query: query,
+            projection: projection,
+            sort: sort,
+            limit: limit,
+            skip: skip,
+            is_encrypted: isEncrypted
+        }, function (result) {
+            if (result.success) {
+                currentResults = result.results;
+                totalDocs = result.total_count;
+
+                display.textContent = JSON.stringify(result.results, null, 2);
+
+                // Update doc count badge
+                document.getElementById('resultCount').textContent = `${result.results.length} fetched`;
+
+                // Update pagination and summary
+                updatePaginationUI(limit);
+            } else {
+                display.textContent = 'Error: ' + result.message;
+                document.getElementById('paginationControls').style.display = 'none';
+            }
+        }, function (error) {
+            display.textContent = 'Error: ' + error.message;
+            document.getElementById('paginationControls').style.display = 'none';
+        });
+    }
+
+    function updatePaginationUI(limit) {
+        const summary = document.getElementById('resultSummary');
+        const pagination = document.getElementById('paginationControls');
+        const pageIndicator = document.getElementById('pageIndicator');
+        const prevItem = document.getElementById('prevPageItem');
+        const nextItem = document.getElementById('nextPageItem');
+
+        if (totalDocs === 0) {
+            summary.textContent = 'No documents found';
+            pagination.style.display = 'none';
+            return;
+        }
+
+        const start = (currentPage - 1) * limit + 1;
+        const end = Math.min(currentPage * limit, totalDocs);
+        summary.textContent = `Displaying ${start} - ${end} of ${totalDocs} documents`;
+
+        pagination.style.display = 'flex';
+        pageIndicator.textContent = `Page ${currentPage}`;
+
+        prevItem.classList.toggle('disabled', currentPage === 1);
+        nextItem.classList.toggle('disabled', end >= totalDocs);
+    }
+
+    function changePage(delta) {
+        if ((delta === -1 && currentPage > 1) || (delta === 1)) {
+            runQuery(currentPage + delta);
+        }
+    }
+
+    function copyResults() {
+        if (!currentResults || currentResults.length === 0) {
+            showAlert('No results to copy', 'warning');
+            return;
+        }
+        const json = JSON.stringify(currentResults, null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            showAlert('Results copied to clipboard', 'success');
+        }).catch(err => {
+            showAlert('Failed to copy: ' + err, 'danger');
+        });
+    }
+</script>
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    #resultsDisplay {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+        font-size: 0.9rem;
+    }
+
+    .badge .fa-times:hover {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
