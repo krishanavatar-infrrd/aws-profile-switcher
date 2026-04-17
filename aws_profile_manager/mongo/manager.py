@@ -5,6 +5,8 @@ import sys
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+import json
+import csv
 from pymongo import MongoClient, errors
 
 logger = logging.getLogger(__name__)
@@ -141,7 +143,8 @@ class MongoManager:
         if skip > 0:
             cursor = cursor.skip(skip)
 
-        cursor = cursor.limit(limit)
+        if limit > 0:
+            cursor = cursor.limit(limit)
 
         results = list(cursor)
 
@@ -151,31 +154,110 @@ class MongoManager:
             except Exception as e:
                 logger.error(f"Decryption failed: {e}")
 
-        def serialize_doc(data):
-            """Recursively convert MongoDB types to JSON serializable formats"""
-            if isinstance(data, list):
-                return [serialize_doc(item) for item in data]
-            if isinstance(data, dict):
-                return {k: serialize_doc(v) for k, v in data.items()}
-            if isinstance(data, datetime):
-                return data.isoformat()
-
-            try:
-                from bson import ObjectId
-                if isinstance(data, ObjectId):
-                    return str(data)
-            except ImportError:
-                pass
-
-            if hasattr(data, '__str__') and not isinstance(data, (int, float, bool, str, type(None))):
-                return str(data)
-
-            return data
-
         return {
-            "results": [serialize_doc(doc) for doc in results],
+            "results": [self._serialize_doc(doc) for doc in results],
             "total_count": total_count
         }
+
+    def export_data(self, db_name: str, collection_name: str,
+                    query_dict: Dict[str, Any],
+                    format: str,
+                    export_path: str,
+                    projection_dict: Optional[Dict[str, Any]] = None,
+                    sort_dict: Optional[List[tuple]] = None,
+                    limit: int = 0,
+                    is_encrypted: bool = False) -> Dict[str, Any]:
+        """Query data and export to local file (JSON or CSV)"""
+        db = self.client[db_name]
+        collection = db[collection_name]
+
+        # Handle projection for decryption
+        actual_projection = projection_dict
+        if is_encrypted and projection_dict:
+            actual_projection = projection_dict.copy()
+            actual_projection["isEncrypted"] = 1
+
+        cursor = collection.find(query_dict, actual_projection)
+
+        if sort_dict:
+            cursor = cursor.sort(sort_dict)
+
+        if limit > 0:
+            cursor = cursor.limit(limit)
+
+        results = list(cursor)
+
+        if is_encrypted and self.decrypt_fn:
+            try:
+                results = self.decrypt_fn(results, collection_name)
+            except Exception as e:
+                logger.error(f"Decryption failed during export: {e}")
+
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(export_path), exist_ok=True)
+
+        if format.lower() == 'json':
+            serialized_results = [self._serialize_doc(doc) for doc in results]
+            with open(export_path, 'w') as f:
+                json.dump(serialized_results, f, indent=2)
+        elif format.lower() == 'csv':
+            if not results:
+                # Create empty file or header only
+                with open(export_path, 'w', newline='') as f:
+                    pass
+            else:
+                flattened_results = [self._flatten_dict(self._serialize_doc(doc)) for doc in results]
+                # Get all unique keys for header
+                keys = set()
+                for doc in flattened_results:
+                    keys.update(doc.keys())
+                keys = sorted(list(keys))
+
+                with open(export_path, 'w', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=keys)
+                    writer.writeheader()
+                    writer.writerows(flattened_results)
+        else:
+            raise ValueError(f"Unsupported export format: {format}")
+
+        return {
+            "success": True,
+            "count": len(results),
+            "export_path": export_path
+        }
+
+    def _serialize_doc(self, data):
+        """Recursively convert MongoDB types to JSON serializable formats"""
+        if isinstance(data, list):
+            return [self._serialize_doc(item) for item in data]
+        if isinstance(data, dict):
+            return {k: self._serialize_doc(v) for k, v in data.items()}
+        if isinstance(data, datetime):
+            return data.isoformat()
+
+        try:
+            from bson import ObjectId
+            if isinstance(data, ObjectId):
+                return str(data)
+        except ImportError:
+            pass
+
+        if hasattr(data, '__str__') and not isinstance(data, (int, float, bool, str, type(None))):
+            return str(data)
+
+        return data
+
+    @staticmethod
+    def _flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '.') -> Dict[str, Any]:
+        """Flatten a nested dictionary for CSV export"""
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.extend(MongoManager._flatten_dict(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, v))
+        return dict(items)
 
     def close(self):
         """Close MongoDB connection"""

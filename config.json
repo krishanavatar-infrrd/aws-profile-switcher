@@ -1,5 +1,5 @@
 {
-  "base_credentials_path": "/Users/krishnavatar/Downloads/credentials",
+  "base_credentials_path": "~/Downloads/credentials",
   "base_profile": "default",
   "environments": {
     "dev": {

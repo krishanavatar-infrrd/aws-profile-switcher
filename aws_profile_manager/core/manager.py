@@ -38,7 +38,7 @@ class AWSProfileManager(LoggerMixin):
             self.logger.error("Base credentials path not configured")
             return False
         
-        return self.credentials_manager.sync_credentials_from_base(Path(base_path))
+        return self.credentials_manager.sync_credentials_from_base(Path(base_path).expanduser())
     
     def switch_profile(self, profile_name: str) -> bool:
         """Switch to a specific profile"""
@@ -278,7 +278,8 @@ class AWSProfileManager(LoggerMixin):
     def get_credentials_status(self) -> Dict:
         """Get credentials status information"""
         try:
-            base_path = Path(self.config_manager.get_base_credentials_path())
+            base_path_str = self.config_manager.get_base_credentials_path()
+            base_path = Path(base_path_str).expanduser() if base_path_str else None
             base_file_exists = base_path.exists() if base_path else False
             
             # Check default profile

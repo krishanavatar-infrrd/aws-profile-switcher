@@ -1,18 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Mongo Query - AWS Profile Manager{% endblock %}
+{% block title %}Mongo Utility - Utility{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">
-            <i class="fas fa-database"></i> MongoDB Query
-        </h1>
-    </div>
-</div>
 
 <!-- Configuration & selection -->
-<div class="row mb-4">
+<div class="row mb-2">
     <div class="col-md-4">
         <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -70,47 +63,54 @@
 
     <div class="col-md-8">
         <div class="card h-100">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0"><i class="fas fa-search"></i> Query</h5>
+                <button class="btn btn-sm btn-primary px-3" onclick="runQuery(1)">
+                    <i class="fas fa-play"></i> Execute
+                </button>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="queryInput" class="form-label">Filter (JSON)</label>
-                        <textarea class="form-control" id="queryInput" rows="3"
+                <div class="row g-2">
+                    <div class="col-md-6 mb-2">
+                        <label for="queryInput" class="form-label small mb-1">Filter (JSON)</label>
+                        <textarea class="form-control form-control-sm" id="queryInput" rows="3"
                             placeholder='{ "documentId": "..." }'>{}</textarea>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="projectionInput" class="form-label">Project (JSON)</label>
-                        <textarea class="form-control" id="projectionInput" rows="3"
+                    <div class="col-md-6 mb-2">
+                        <label for="projectionInput" class="form-label small mb-1">Project (JSON)</label>
+                        <textarea class="form-control form-control-sm" id="projectionInput" rows="3"
                             placeholder='{ "fieldName": 1 }'></textarea>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label for="sortInput" class="form-label">Sort (JSON)</label>
-                        <input type="text" class="form-control" id="sortInput" placeholder='{ "createdDate": -1 }'>
+                <div class="row g-2">
+                    <div class="col-md-3 mb-2">
+                        <label for="sortInput" class="form-label small mb-1">Sort (JSON)</label>
+                        <input type="text" class="form-control form-control-sm" id="sortInput" placeholder='{ "createdDate": -1 }'>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <label for="limitInput" class="form-label">Limit</label>
-                        <input type="number" class="form-control" id="limitInput" value="100">
+                    <div class="col-md-2 mb-2">
+                        <label for="limitInput" class="form-label small mb-1">Limit (0=all)</label>
+                        <input type="number" class="form-control form-control-sm" id="limitInput" value="100">
                     </div>
-                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <div class="col-md-2 mb-2 d-flex align-items-end">
                         <div class="form-check form-switch mb-2">
                             <input class="form-check-input" type="checkbox" id="isEncryptedToggle">
-                            <label class="form-check-label" for="isEncryptedToggle">Decrypt Results</label>
+                            <label class="form-check-label small" for="isEncryptedToggle">Decrypt</label>
                         </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span id="resultSummary" class="text-muted small"></span>
-                    <div>
-                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="copyResults()">
-                            <i class="fas fa-copy"></i> Copy JSON
-                        </button>
-                        <button class="btn btn-primary" onclick="runQuery(1)">
-                            <i class="fas fa-play"></i> Run Query
-                        </button>
+                <hr class="my-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label for="actionSelect" class="form-label small mb-1">Action</label>
+                        <select class="form-select form-select-sm" id="actionSelect" onchange="togglePathInput()">
+                            <option value="query">Run Query</option>
+                            <option value="json">Export to JSON</option>
+                            <option value="csv">Export to CSV</option>
+                        </select>
+                    </div>
+                    <div class="col-md-7" id="pathInputGroup" style="display: none;">
+                        <label for="exportPath" class="form-label small mb-1">Export Path</label>
+                        <input type="text" class="form-control form-control-sm" id="exportPath" placeholder="/path/to/export.json">
                     </div>
                 </div>
             </div>
@@ -123,8 +123,14 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0"><i class="fas fa-list"></i> Results</h5>
                 <div class="d-flex align-items-center">
+                    <h5 class="card-title mb-0 me-3"><i class="fas fa-list"></i> Results</h5>
+                    <span id="resultSummary" class="text-muted small"></span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-sm btn-outline-secondary me-3" onclick="copyResults()" title="Copy JSON">
+                        <i class="fas fa-copy"></i>
+                    </button>
                     <nav aria-label="Page navigation" class="me-3">
                         <ul class="pagination pagination-sm mb-0" id="paginationControls" style="display: none;">
                             <li class="page-item" id="prevPageItem">
@@ -253,7 +259,62 @@
         addEnvModal = new bootstrap.Modal(document.getElementById('addEnvModal'));
         addDBModal = new bootstrap.Modal(document.getElementById('addDBModal'));
         addCollectionModal = new bootstrap.Modal(document.getElementById('addCollectionModal'));
+
+        // Restore state
+        const lastEnv = localStorage.getItem('mongoLastEnv');
+        if (lastEnv) {
+            document.getElementById('envSelect').value = lastEnv;
+            loadDatabases(localStorage.getItem('mongoLastDB'));
+        }
+
+        // Restore other fields
+        const fields = ['queryInput', 'projectionInput', 'sortInput', 'limitInput', 'actionSelect', 'exportPath'];
+        fields.forEach(f => {
+            const val = localStorage.getItem('mongo_' + f);
+            if (val !== null) document.getElementById(f).value = val;
+        });
+
+        const isEncrypted = localStorage.getItem('mongo_isEncryptedToggle');
+        if (isEncrypted !== null) document.getElementById('isEncryptedToggle').checked = isEncrypted === 'true';
+
+        // Toggle path input visibility based on restored action
+        togglePathInput();
+
+        // Add auto-save listeners
+        fields.forEach(f => {
+            document.getElementById(f).addEventListener('input', function() {
+                localStorage.setItem('mongo_' + f, this.value);
+            });
+        });
+        document.getElementById('actionSelect').addEventListener('change', function() {
+            localStorage.setItem('mongo_actionSelect', this.value);
+        });
+        document.getElementById('isEncryptedToggle').addEventListener('change', function() {
+            localStorage.setItem('mongo_isEncryptedToggle', this.checked);
+        });
     });
+
+    function togglePathInput() {
+        const action = document.getElementById('actionSelect').value;
+        const pathGroup = document.getElementById('pathInputGroup');
+        const limitInput = document.getElementById('limitInput');
+        const exportPathInput = document.getElementById('exportPath');
+        
+        if (action === 'query') {
+            pathGroup.style.display = 'none';
+        } else {
+            pathGroup.style.display = 'block';
+            if (!exportPathInput.value) {
+                // Suggest a default path
+                const env = document.getElementById('envSelect').value;
+                const db = document.getElementById('dbSelect').value;
+                const col = document.getElementById('collectionSelect').value;
+                if (env && db && col) {
+                    exportPathInput.value = `~/Downloads/${col}_export.${action}`;
+                }
+            }
+        }
+    }
 
     function showAddEnvModal() {
         addEnvModal.show();
@@ -312,13 +373,18 @@
         }, null, 'DELETE');
     }
 
-    function loadDatabases() {
+    function loadDatabases(targetDB = null) {
         const env = document.getElementById('envSelect').value;
         const dbSelect = document.getElementById('dbSelect');
         dbSelect.innerHTML = '<option value="">Loading databases...</option>';
 
+        // Save state
+        localStorage.setItem('mongoLastEnv', env);
+
         if (!env) {
             dbSelect.innerHTML = '<option value="">Select Database</option>';
+            localStorage.removeItem('mongoLastDB');
+            localStorage.removeItem('mongoLastCol');
             return;
         }
 
@@ -338,6 +404,16 @@
                     });
 
                     renderManualDBBadges(env, data.manual_databases);
+
+                    if (targetDB) {
+                        // Small delay to ensure browser has rendered options
+                        setTimeout(() => {
+                            dbSelect.value = targetDB;
+                            if (dbSelect.value === targetDB) {
+                                loadCollections(localStorage.getItem('mongoLastCol'));
+                            }
+                        }, 50);
+                    }
                 } else {
                     dbSelect.innerHTML = '<option value="">Error loading DBs</option>';
                     showAlert(data.message, 'danger');
@@ -382,14 +458,18 @@
         }, null, 'DELETE');
     }
 
-    function loadCollections() {
+    function loadCollections(targetCol = null) {
         const env = document.getElementById('envSelect').value;
         const db = document.getElementById('dbSelect').value;
         const colSelect = document.getElementById('collectionSelect');
         colSelect.innerHTML = '<option value="">Loading collections...</option>';
 
+        // Save state
+        localStorage.setItem('mongoLastDB', db);
+
         if (!env || !db) {
             colSelect.innerHTML = '<option value="">Select Collection</option>';
+            localStorage.removeItem('mongoLastCol');
             return;
         }
 
@@ -410,12 +490,25 @@
 
                     // Render manual collection badges
                     renderManualBadges(env, data.manual_collections);
+
+                    if (targetCol) {
+                        setTimeout(() => {
+                            colSelect.value = targetCol;
+                        }, 50);
+                    }
                 } else {
                     colSelect.innerHTML = '<option value="">Error loading collections</option>';
                     showAlert(data.message, 'danger');
                 }
             });
     }
+
+    // Add listener for collection change to save state
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('collectionSelect').addEventListener('change', function() {
+            localStorage.setItem('mongoLastCol', this.value);
+        });
+    });
 
     function renderManualBadges(env, manuals) {
         const list = document.getElementById('manualCollectionsList');
@@ -461,11 +554,18 @@
         const query = document.getElementById('queryInput').value;
         const projection = document.getElementById('projectionInput').value;
         const sort = document.getElementById('sortInput').value;
-        const limit = parseInt(document.getElementById('limitInput').value) || 100;
+        const limit = parseInt(document.getElementById('limitInput').value);
         const isEncrypted = document.getElementById('isEncryptedToggle').checked;
+        const action = document.getElementById('actionSelect').value;
+        const exportPath = document.getElementById('exportPath').value;
 
         if (!env || !db || !col) {
             showAlert('Please select Env, DB, and Collection', 'warning');
+            return;
+        }
+
+        if (action !== 'query' && !exportPath) {
+            showAlert('Please provide an export path', 'warning');
             return;
         }
 
@@ -473,7 +573,15 @@
         const skip = (currentPage - 1) * limit;
 
         const display = document.getElementById('resultsDisplay');
-        display.textContent = 'Executing query...';
+        const executeBtn = event.target.closest('button');
+        const originalBtnHTML = executeBtn.innerHTML;
+        
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Executing...';
+        
+        if (action === 'query') {
+            display.textContent = 'Executing query...';
+        }
 
         apiCall('/api/mongo/query', {
             env_name: env,
@@ -482,27 +590,44 @@
             query: query,
             projection: projection,
             sort: sort,
-            limit: limit,
+            limit: isNaN(limit) ? 0 : limit,
             skip: skip,
-            is_encrypted: isEncrypted
+            is_encrypted: isEncrypted,
+            action: action,
+            export_path: exportPath
         }, function (result) {
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = originalBtnHTML;
+            
             if (result.success) {
-                currentResults = result.results;
-                totalDocs = result.total_count;
+                if (action === 'query') {
+                    currentResults = result.results;
+                    totalDocs = result.total_count;
 
-                display.textContent = JSON.stringify(result.results, null, 2);
+                    display.textContent = JSON.stringify(result.results, null, 2);
 
-                // Update doc count badge
-                document.getElementById('resultCount').textContent = `${result.results.length} fetched`;
+                    // Update doc count badge
+                    document.getElementById('resultCount').textContent = `${result.results.length} fetched`;
 
-                // Update pagination and summary
-                updatePaginationUI(limit);
+                    // Update pagination and summary
+                    updatePaginationUI(limit);
+                } else {
+                    showAlert(`Export successful! ${result.count} documents written to ${result.export_path}`, 'success');
+                    if (action === 'query') {
+                        // This shouldn't happen but just in case
+                        display.textContent = 'Export completed.';
+                    }
+                }
             } else {
-                display.textContent = 'Error: ' + result.message;
+                if (action === 'query') display.textContent = 'Error: ' + result.message;
+                showAlert(result.message, 'danger');
                 document.getElementById('paginationControls').style.display = 'none';
             }
         }, function (error) {
-            display.textContent = 'Error: ' + error.message;
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = originalBtnHTML;
+            if (action === 'query') display.textContent = 'Error: ' + error.message;
+            showAlert(error.message, 'danger');
             document.getElementById('paginationControls').style.display = 'none';
         });
     }

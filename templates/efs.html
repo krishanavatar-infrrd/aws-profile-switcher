@@ -1,22 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}EFS Management - AWS Profile Manager{% endblock %}
+{% block title %}EFS Management - Utility{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">
-            <i class="fas fa-network-wired text-primary"></i> SFTP Management
-            <small class="text-muted fs-6 fw-normal ms-2">Manage remote EFS via SFTP</small>
-        </h1>
-    </div>
-</div>
 
 <!-- Connections Section -->
-<div class="row mb-4" id="connectionSection">
+<div class="row mb-2" id="connectionSection">
     <div class="col-lg-4">
         <!-- Add/Edit Connection Form -->
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm mb-2">
             <div class="card-header bg-white py-3">
                 <h5 class="card-title mb-0" id="formTitle">
                     <i class="fas fa-plus-circle text-success"></i> Add Connection
@@ -120,7 +112,7 @@
                 </div>
 
                 <!-- Search Bar -->
-                <div class="p-3 bg-white border-bottom">
+                <div class="px-3 py-2 bg-white border-bottom">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-light border-end-0"><i
                                 class="fas fa-search text-muted"></i></span>
@@ -131,6 +123,31 @@
                                 class="fas fa-times"></i></button>
                     </div>
                     <div id="searchResultsCount" class="small text-info mt-1 fw-bold"></div>
+                </div>
+
+                <!-- Mongo Lookup -->
+                <div class="px-3 py-2 bg-light border-bottom">
+                    <div class="row align-items-center g-2">
+                        <div class="col-auto">
+                            <span class="small fw-bold text-muted"><i class="fas fa-database me-1"></i> Mongo Lookup:</span>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="mongoEnvSelect">
+                                <option value="">Select Mongo Env</option>
+                                {% for m_config in mongo_configs %}
+                                <option value="{{ m_config.name }}">{{ m_config.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md">
+                            <input type="text" class="form-control form-select-sm" id="mongoSearchId" placeholder="Document ID / Request ID">
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-sm btn-info text-white px-3" onclick="lookupMongoPath()">
+                                <i class="fas fa-location-arrow me-1"></i> Go to Path
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- File Table View -->
@@ -158,13 +175,13 @@
                     aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="mb-4">
+                <div class="mb-2">
                     <label class="form-label small fw-bold text-muted text-uppercase mb-1">Destination</label>
                     <div class="p-2 bg-light border-start border-success border-4 rounded">
                         <code id="uploadPathDisplay" class="text-dark"></code>
                     </div>
                 </div>
-                <div class="mb-4">
+                <div class="mb-2">
                     <label for="fileUpload" class="form-label small fw-bold text-muted text-uppercase mb-1">Select
                         File</label>
                     <input type="file" class="form-control" id="fileUpload">
@@ -235,6 +252,11 @@
         // Handle Enter key in search input
         document.getElementById('efsSearchInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') searchFiles();
+        });
+
+        // Handle Enter key in mongo lookup input
+        document.getElementById('mongoSearchId').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') lookupMongoPath();
         });
     });
 
@@ -423,6 +445,37 @@
         document.getElementById('efsSearchInput').value = '';
         document.getElementById('searchResultsCount').textContent = '';
         listFiles(currentPath);
+    }
+
+    function lookupMongoPath() {
+        const env = document.getElementById('mongoEnvSelect').value;
+        const id = document.getElementById('mongoSearchId').value.trim();
+
+        if (!env || !id) {
+            showAlert('warning', 'Please select a Mongo Env and enter an ID');
+            return;
+        }
+
+        const btn = event.target.closest('button') || document.querySelector('button[onclick="lookupMongoPath()"]');
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finding...';
+
+        apiCall('/api/efs/mongo_lookup', { env_name: env, search_value: id }, function (data) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+
+            if (data.success) {
+                showAlert('success', `Document found! Navigating to path...`);
+                listFiles(data.path);
+            } else {
+                showAlert('danger', data.message);
+            }
+        }, function (error) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            showAlert('danger', error.message || 'Error looking up path');
+        });
     }
 
     function displayFiles(folders, objects) {

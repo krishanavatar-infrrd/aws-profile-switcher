@@ -1,4 +1,8 @@
 from flask import Flask, render_template, request, jsonify, flash, session
+try:
+    from bson import ObjectId
+except ImportError:
+    ObjectId = None
 from aws_profile_manager.core.manager import AWSProfileManager
 from aws_profile_manager.utils.logging import setup_logging
 from aws_profile_manager.api.session_manager import SessionManager
@@ -11,6 +15,9 @@ from pathlib import Path
 # Setup logging
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Project root for finding scripts/configs
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 # Initialize AWS Profile Manager
 aws_manager = AWSProfileManager()
@@ -152,10 +159,11 @@ def create_app():
     @app.route('/efs')
     def efs():
         try:
-            return render_template('efs.html')
+            mongo_configs = aws_manager.config_manager.get_mongo_configs()
+            return render_template('efs.html', mongo_configs=mongo_configs)
         except Exception as e:
             logger.error(f'Error in efs: {e}')
-            return render_template('efs.html')
+            return render_template('efs.html', mongo_configs=[])
     
     @app.route('/mongo')
     def mongo():
@@ -564,44 +572,48 @@ def create_app():
             return jsonify({'success': False, 'message': str(e)})
 
     def _update_shell_profile(enabled=True):
-        """Helper to update .zshrc with Bedrock source command"""
-        zshrc_path = Path.home() / '.zshrc'
-        if not zshrc_path.exists():
-            logger.warning(f"Shell profile {zshrc_path} not found")
-            return False
-            
+        """Helper to update shell profiles (.zshrc, .bashrc) with Bedrock source command"""
+        profiles = [Path.home() / '.zshrc', Path.home() / '.bashrc', Path.home() / '.bash_profile']
+        updated_any = False
+        
         managed_block_start = "# >>> Managed by AWS Profile Manager >>>"
         managed_block_end = "# <<< Managed by AWS Profile Manager <<<"
-        bedrock_script = "/Users/krishnavatar/bedrock.sh"
+        bedrock_script = PROJECT_ROOT / "bedrock.sh"
         source_line = f"source {bedrock_script}"
         
-        try:
-            content = zshrc_path.read_text()
-            
-            if enabled:
-                if managed_block_start in content:
-                    logger.info("Bedrock source already in .zshrc")
-                    return True
-                else:
+        for profile_path in profiles:
+            if not profile_path.exists():
+                continue
+                
+            try:
+                content = profile_path.read_text()
+                
+                if enabled:
+                    if managed_block_start in content:
+                        logger.info(f"Bedrock source already in {profile_path.name}")
+                        updated_any = True
+                        continue
+                    
                     # Add at the end
                     new_block = f"\n{managed_block_start}\n# Bedrock Toggle: Enabled\n{source_line}\n{managed_block_end}\n"
-                    zshrc_path.write_text(content + new_block)
-                    logger.info("Added Bedrock source to .zshrc")
-            else:
-                if managed_block_start in content:
-                    # Remove the block
-                    import re
-                    pattern = r"\n?" + re.escape(managed_block_start) + r".*?" + re.escape(managed_block_end) + r"\n?"
-                    new_content = re.sub(pattern, "\n", content, flags=re.DOTALL)
-                    zshrc_path.write_text(new_content.strip() + "\n")
-                    logger.info("Removed Bedrock source from .zshrc")
+                    profile_path.write_text(content + new_block)
+                    logger.info(f"Added Bedrock source to {profile_path.name}")
+                    updated_any = True
                 else:
-                    logger.info("Bedrock source not found in .zshrc, nothing to remove")
-            
-            return True
-        except Exception as e:
-            logger.error(f"Error updating shell profile: {e}")
-            return False
+                    if managed_block_start in content:
+                        # Remove the block
+                        import re
+                        pattern = r"\n?" + re.escape(managed_block_start) + r".*?" + re.escape(managed_block_end) + r"\n?"
+                        new_content = re.sub(pattern, "\n", content, flags=re.DOTALL)
+                        profile_path.write_text(new_content.strip() + "\n")
+                        logger.info(f"Removed Bedrock source from {profile_path.name}")
+                        updated_any = True
+                    else:
+                        logger.info(f"Bedrock source not found in {profile_path.name}, nothing to remove")
+            except Exception as e:
+                logger.error(f"Error updating {profile_path.name}: {e}")
+        
+        return updated_any
 
     @app.route('/api/bedrock_status', methods=['GET'])
     def api_bedrock_status():
@@ -1503,6 +1515,64 @@ echo "⏰ Credentials will expire in 1 hour"
             logger.error(f"Error deleting EFS file: {e}")
             return jsonify({'success': False, 'message': str(e)})
 
+    @app.route('/api/efs/mongo_lookup', methods=['POST'])
+    def api_efs_mongo_lookup():
+        """Lookup SFTP path from Mongo document"""
+        try:
+            data = request.get_json()
+            env_name = data.get('env_name')
+            search_value = data.get('search_value')
+            
+            if not env_name or not search_value:
+                return jsonify({'success': False, 'message': 'Environment and Search Value are required'})
+            
+            # Fetch Mongo config
+            configs = aws_manager.config_manager.get_mongo_configs()
+            config = next((c for c in configs if c['name'] == env_name), None)
+            
+            if not config:
+                return jsonify({'success': False, 'message': f'Mongo environment "{env_name}" not found'})
+            
+            # Connect to Mongo
+            manager = MongoManager(config['connect_string'], config)
+            db = manager.client['titanDB']
+            # User specifically mentioned "document collection" -- assuming collection name is 'document'
+            collection = db['document']
+            
+            # Build query
+            query = {"$or": [{"requestId": search_value}]}
+            
+            # Try searching by _id (string and ObjectId if possible)
+            query["$or"].append({"_id": search_value})
+            if ObjectId:
+                try:
+                    query["$or"].append({"_id": ObjectId(search_value)})
+                except:
+                    pass
+            
+            doc = collection.find_one(query, {"baseDirectory": 1})
+            manager.close()
+            
+            if not doc:
+                return jsonify({'success': False, 'message': 'No document found matching this ID'})
+            
+            base_dir = doc.get('baseDirectory')
+            if not base_dir:
+                return jsonify({'success': False, 'message': 'Document found, but "baseDirectory" field is missing'})
+            
+            # Transform path: replace /var/data/efs/ with /common/
+            transformed_path = base_dir.replace('/var/data/efs/', '/common/')
+            
+            return jsonify({
+                'success': True, 
+                'path': transformed_path,
+                'original_path': base_dir
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in mongo_lookup: {e}")
+            return jsonify({'success': False, 'message': str(e)})
+
     # MongoDB API Endpoints
     @app.route('/api/mongo/configs', methods=['GET'])
     def api_mongo_get_configs():
@@ -1639,6 +1709,9 @@ echo "⏰ Credentials will expire in 1 hour"
             skip = int(data.get('skip', 0))
             is_encrypted = data.get('is_encrypted', False)
             
+            action = data.get('action', 'query')
+            export_path = data.get('export_path', '')
+            
             configs = aws_manager.config_manager.get_mongo_configs()
             config = next((c for c in configs if c['name'] == env_name), None)
             
@@ -1660,14 +1733,26 @@ echo "⏰ Credentials will expire in 1 hour"
                 sort_dict = [tuple(x) for x in sort_raw]
             
             manager = MongoManager(config['connect_string'], config)
-            query_result = manager.query(db_name, collection_name, query_dict, projection_dict, sort_dict, limit, skip, is_encrypted)
-            manager.close()
             
-            return jsonify({
-                'success': True, 
-                'results': query_result['results'],
-                'total_count': query_result['total_count']
-            })
+            if action == 'query':
+                query_result = manager.query(db_name, collection_name, query_dict, projection_dict, sort_dict, limit, skip, is_encrypted)
+                manager.close()
+                return jsonify({
+                    'success': True, 
+                    'results': query_result['results'],
+                    'total_count': query_result['total_count']
+                })
+            else:
+                if not export_path:
+                    manager.close()
+                    return jsonify({'success': False, 'message': 'Export path is required'})
+                
+                export_result = manager.export_data(
+                    db_name, collection_name, query_dict, action, export_path, 
+                    projection_dict, sort_dict, limit, is_encrypted
+                )
+                manager.close()
+                return jsonify(export_result)
         except Exception as e:
             logger.error(f"Error in mongo query: {e}")
             return jsonify({'success': False, 'message': str(e)})

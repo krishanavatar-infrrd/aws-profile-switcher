@@ -1,7 +1,7 @@
 """
-AWS Profile Manager Package
+Utility Package
 
-A comprehensive tool for managing AWS profiles, credentials, environments, and S3 operations.
+A comprehensive tool for managing AWS profiles, credentials, environments, S3, SFTP, and MongoDB operations.
 """
 
 from aws_profile_manager.core.manager import AWSProfileManager
@@ -13,8 +13,8 @@ from aws_profile_manager.s3.manager import S3Manager
 from aws_profile_manager.utils.logging import setup_logging, get_logger
 
 __version__ = "1.0.0"
-__author__ = "AWS Profile Manager Team"
-__description__ = "A comprehensive AWS profile and credentials management tool"
+__author__ = "Utility Team"
+__description__ = "A comprehensive multi-utility management tool"
 
 __all__ = [
     'AWSProfileManager',

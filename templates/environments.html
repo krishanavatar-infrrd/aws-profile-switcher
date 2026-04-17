@@ -1,18 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Environments - AWS Profile Manager{% endblock %}
+{% block title %}Environments - Utility{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">
-            <i class="fas fa-globe"></i> AWS Environments
-        </h1>
-    </div>
-</div>
 
 <!-- Add New Environment -->
-<div class="row mb-4">
+<div class="row mb-2">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
@@ -78,7 +71,7 @@
 </div>
 
 <!-- Current Environment -->
-<div class="row mb-4">
+<div class="row mb-2">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
@@ -130,7 +123,7 @@
             <div class="card-body">
                 <div class="row">
                     {% for env_name, env_config in environments.items() %}
-                    <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="col-md-6 col-lg-4 mb-2">
                         <div class="card environment-card {{ 'current-env' if current_env.environment == env_name.upper() else '' }}">
                             <div class="card-header">
                                 <h6 class="card-title mb-0">
@@ -186,7 +179,7 @@
 </div>
 
 <!-- Environment Details -->
-<div class="row mt-4">
+<div class="row mt-2">
     <div class="col-12">
         <div class="card">
             <div class="card-header">

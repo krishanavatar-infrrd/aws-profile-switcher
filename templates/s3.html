@@ -1,18 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}S3 Management - AWS Profile Manager{% endblock %}
+{% block title %}S3 Management - Utility{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">
-            <i class="fas fa-cloud"></i> S3 Management
-        </h1>
-    </div>
-</div>
 
 <!-- Status Card -->
-<div class="row mb-4">
+<div class="row mb-2">
     <div class="col-12">
         <div class="card">
             <div class="card-body">
@@ -56,7 +49,7 @@
 </div>
 
 <!-- Search by Complete Path -->
-<div class="row mb-4">
+<div class="row mb-2">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
@@ -105,7 +98,7 @@
 </div>
 
 <!-- S3 Bucket Management -->
-<div class="row mb-4">
+<div class="row mb-2">
     <div class="col-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -134,7 +127,7 @@
 
                 <!-- Bucket Lists -->
                 <!-- Predefined Buckets Section -->
-                <div class="mb-4">
+                <div class="mb-2">
                     <h6 class="text-primary">
                         <i class="fas fa-star"></i> Predefined Buckets
                         <small class="text-muted" id="predefinedCount"></small>
@@ -152,7 +145,7 @@
                 </div>
 
                 <!-- Detected Buckets Section -->
-                <div class="mb-4">
+                <div class="mb-2">
                     <h6 class="text-info">
                         <i class="fas fa-search"></i> Detected Buckets
                         <small class="text-muted" id="detectedCount"></small>
